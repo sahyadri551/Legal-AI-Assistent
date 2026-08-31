@@ -1,12 +1,14 @@
 # Secrets and local env
 .env
 .env.local
+.env.*.local
 *.pem
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg
 *.egg-info/
 .eggs/
 dist/
@@ -14,6 +16,9 @@ build/
 .venv/
 venv/
 env/
+
+# Prettier / Node (if used for YAML/JSON/Markdown)
+node_modules/
 
 # IDE / OS
 .idea/
@@ -27,6 +32,8 @@ Thumbs.db
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 huggingface/
 *.onnx
 

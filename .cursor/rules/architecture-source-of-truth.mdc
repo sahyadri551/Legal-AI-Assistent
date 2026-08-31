@@ -1,0 +1,28 @@
+---
+description: Treat docs/architecture.md as the architectural source of truth; do not change the pipeline without justification.
+alwaysApply: true
+---
+
+# Architecture is source of truth
+
+- Read and follow `docs/architecture.md` before implementing or changing retrieval, generation, or API flow.
+- Do not change the architecture (stages, components, or their order) unless it is necessary. If a change is required, explain why in the response before editing code or docs.
+- Keep `configs/*.yaml` aligned with the documented pipeline; do not introduce a different retrieval or generation design by default.
+
+## Documented pipeline (do not skip or reorder)
+
+1. User query
+2. Query preprocessing
+3. Parallel retrieval: BM25 (sparse), embedding + FAISS (dense), metadata
+4. Reciprocal Rank Fusion
+5. Top-K chunks
+6. Qwen3 4B (via Ollama, not in-process)
+7. Answer + citations
+
+## Constraints from this design
+
+- Hybrid BM25 + dense + RRF; evaluation baselines remain BM25-only, dense-only, and hybrid RRF.
+- CPU-first embeddings (`BAAI/bge-small-en-v1.5`); no assumed discrete GPU.
+- Generation via local Ollama (`qwen3:4b`); no in-process LLM load, no LoRA/QLoRA training.
+- Answers must be grounded in retrieved excerpts with citations; refuse when unsupported.
+- Do not add training stacks, CUDA wheels, or orchestration frameworks unless a later step requires them and the architecture change is explained.

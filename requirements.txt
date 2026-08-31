@@ -1,4 +1,4 @@
-# Runtime — CPU-only. No training, CUDA, LoRA, or LLM orchestration frameworks.
+# Python 3.12. CPU-only runtime. No training, CUDA, LoRA, or LLM orchestration.
 fastapi>=0.115.0,<0.117.0
 uvicorn[standard]>=0.32.0,<0.35.0
 streamlit>=1.40.0,<1.42.0
@@ -9,7 +9,7 @@ pyyaml>=6.0.2,<7.0.0
 httpx>=0.27.0,<0.29.0
 ollama>=0.4.0,<0.5.0
 
-# Retrieval (CPU)
+# Retrieval (CPU): BM25 + FAISS embeddings, fused later with RRF
 numpy>=1.26.0,<3.0.0
 sentence-transformers>=3.3.0,<4.0.0
 faiss-cpu>=1.9.0,<1.11.0
