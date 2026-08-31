@@ -1,4 +1,4 @@
-# Python 3.12. CPU-only runtime. No training, CUDA, LoRA, or LLM orchestration.
+# Python 3.12.10. CPU-only runtime. No training, CUDA, LoRA, or LLM orchestration.
 fastapi>=0.115.0,<0.117.0
 uvicorn[standard]>=0.32.0,<0.35.0
 streamlit>=1.40.0,<1.42.0
