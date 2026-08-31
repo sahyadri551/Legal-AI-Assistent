@@ -1,0 +1,26 @@
+# Generation is delegated to Ollama. No local fine-tuning.
+
+ollama:
+  base_url: http://127.0.0.1:11434
+  model: qwen3:4b
+  timeout_seconds: 120
+
+sampling:
+  temperature: 0.2
+  top_p: 0.9
+  num_predict: 512
+
+context:
+  # Number of fused chunks passed as grounded context.
+  max_chunks: 8
+  max_context_chars: 6000
+
+prompt:
+  require_citations: true
+  refuse_when_unsupported: true
+  system: >
+    You are a research assistant for Indian legal questions.
+    Answer only from the provided retrieved excerpts.
+    Cite the source identifiers given with those excerpts.
+    If the excerpts are insufficient, say so. Do not invent law,
+    citations, or case holdings.

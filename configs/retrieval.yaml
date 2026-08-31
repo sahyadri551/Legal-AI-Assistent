@@ -1,0 +1,37 @@
+# Hybrid retrieval: sparse BM25 + dense FAISS, fused with RRF.
+# Indexes are built later from user-supplied corpora only.
+
+chunking:
+  # Character-based defaults; tokenizer-aware chunking can replace these later.
+  max_chars: 1200
+  overlap_chars: 150
+
+preprocessing:
+  lowercase: true
+  # Legal citations and section markers should be preserved in stored text.
+  strip_extra_whitespace: true
+
+sparse:
+  method: bm25
+  library: rank-bm25
+  k1: 1.5
+  b: 0.75
+  top_k: 50
+
+dense:
+  embedding_model: BAAI/bge-small-en-v1.5
+  device: cpu
+  normalize_embeddings: true
+  batch_size: 8
+  faiss_index_type: IndexFlatIP
+  top_k: 50
+
+fusion:
+  method: reciprocal_rank_fusion
+  rrf_k: 60
+  fused_top_k: 8
+
+baselines:
+  - bm25_only
+  - dense_only
+  - hybrid_rrf

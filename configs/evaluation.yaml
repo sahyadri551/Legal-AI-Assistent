@@ -1,0 +1,31 @@
+# Experiment protocol. No scores, gold labels, or example queries are stored here.
+# Evaluation runs only against corpora and labels supplied by the researcher.
+
+comparison:
+  systems:
+    - bm25_only
+    - dense_only
+    - hybrid_rrf
+  generation_model: qwen3:4b
+  hold_generation_fixed: true
+
+retrieval_metrics:
+  ks: [5, 8, 20]
+  names:
+    - recall_at_k
+    - precision_at_k
+    - ndcg_at_k
+    - mrr
+
+answer_quality:
+  # Human or later automated protocol; no fabricated judgments.
+  dimensions:
+    - groundedness
+    - citation_accuracy
+    - completeness
+    - refusal_when_unsupported
+
+runtime:
+  record_latency: true
+  record_retrieved_ids: true
+  output_dir: experiments/runs

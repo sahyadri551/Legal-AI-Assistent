@@ -1,0 +1,27 @@
+# Application, hardware, and path defaults.
+# Generation uses a local Ollama server; no in-process LLM weights.
+
+project:
+  name: indian-legal-research-assistant
+  research_question: >
+    Does hybrid BM25 + dense retrieval with Reciprocal Rank Fusion
+    improve retrieval and answer quality for Indian legal QA
+    compared with BM25-only and dense-only baselines?
+
+hardware:
+  device: cpu
+  notes: Intel i5-13420H, 16 GB RAM, integrated GPU unused for inference.
+
+paths:
+  data_raw: data/raw
+  data_processed: data/processed
+  index_bm25: data/indexes/bm25
+  index_faiss: data/indexes/faiss
+  experiment_runs: experiments/runs
+
+api:
+  host: 127.0.0.1
+  port: 8000
+
+frontend:
+  port: 8501

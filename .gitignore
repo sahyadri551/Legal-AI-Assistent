@@ -1,0 +1,47 @@
+# Secrets and local env
+.env
+.env.local
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Caches
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+huggingface/
+*.onnx
+
+# Runtime artifacts (keep directory placeholders)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/indexes/bm25/*
+!data/indexes/bm25/.gitkeep
+data/indexes/faiss/*
+!data/indexes/faiss/.gitkeep
+experiments/runs/*
+!experiments/runs/.gitkeep
+
+# Logs
+*.log
+logs/
