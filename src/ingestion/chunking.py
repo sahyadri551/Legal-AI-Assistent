@@ -7,11 +7,15 @@ from pathlib import Path
 from typing import Any
 
 
-def _chunk_text(text: str, max_chars: int, overlap_chars: int) -> list[str]:
+def _validate_chunk_config(max_chars: int, overlap_chars: int) -> None:
     if max_chars <= 0:
         raise ValueError("max_chars must be greater than zero")
     if overlap_chars < 0 or overlap_chars >= max_chars:
         raise ValueError("overlap_chars must be >= 0 and < max_chars")
+
+
+def _chunk_text(text: str, max_chars: int, overlap_chars: int) -> list[str]:
+    _validate_chunk_config(max_chars, overlap_chars)
 
     words = text.split()
     if not words:
@@ -64,6 +68,8 @@ def chunk_documents(
     overlap_chars: int = 150,
 ) -> dict[str, int | float]:
     """Read documents.jsonl and write deterministic chunks.jsonl."""
+    _validate_chunk_config(max_chars, overlap_chars)
+
     total_documents = 0
     total_chunks = 0
     zero_text_documents = 0

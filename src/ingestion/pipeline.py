@@ -118,7 +118,7 @@ def _statute_documents(
 
         pdf_rel = relative_posix(path, project_root)
         text = _extract_text(path, project_root, unreadable_pdfs, empty_text_pdfs)
-        if text is not None:
+        if pdf_is_readable(path):
             readable_paths[filename] = path
 
         documents.append(
@@ -225,7 +225,9 @@ def write_jsonl(documents: list[Document], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8", newline="\n") as handle:
         for document in documents:
-            handle.write(json.dumps(document.model_dump(), ensure_ascii=False) + "\n")
+            handle.write(
+                json.dumps(document.model_dump(), ensure_ascii=False) + "\n"
+            )
 
 
 def run_ingestion(
