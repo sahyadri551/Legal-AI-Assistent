@@ -1,4 +1,4 @@
-"""Normalized document records and ingestion validation report."""
+"""Normalized document and ingestion report models."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ class Document(BaseModel):
     caption_path: str | None
     caption_text: str | None
     pdf_filename: str
+    text: str | None
 
 
 class IngestionReport(BaseModel):
@@ -29,5 +30,6 @@ class IngestionReport(BaseModel):
     duplicate_pair_ids: list[int] = Field(default_factory=list)
     unreadable_metadata_files: list[str] = Field(default_factory=list)
     unreadable_pdfs: list[str] = Field(default_factory=list)
+    empty_text_pdfs: list[str] = Field(default_factory=list)
     bns_bsa_byte_identical: bool | None = None
     byte_identical_statute_pairs: list[list[str]] = Field(default_factory=list)

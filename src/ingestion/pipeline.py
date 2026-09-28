@@ -1,4 +1,4 @@
-"""Scan raw sources and write documents.jsonl. No chunking or retrieval."""
+"""Scan raw sources, extract PDF text, and write documents.jsonl."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ingestion.matching import JudgmentScan, matched_pair_ids, scan_judgments
 from ingestion.models import Document, IngestionReport
+from ingestion.pdf_text import extract_pdf_text
 
 JUDGMENTS_DIRNAME = "Suprem Court Judgements"
 METADATA_DIRNAME = "metadata"
@@ -26,7 +27,6 @@ def relative_posix(path: Path, root: Path) -> str:
 
 
 def read_caption_text(path: Path) -> str:
-    """Decode metadata bytes as UTF-8 with no newline translation."""
     return path.read_bytes().decode("utf-8")
 
 
@@ -49,6 +49,26 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _extract_text(
+    pdf_path: Path,
+    project_root: Path,
+    unreadable_pdfs: list[str],
+    empty_text_pdfs: list[str],
+) -> str | None:
+    pdf_rel = relative_posix(pdf_path, project_root)
+    if not pdf_is_readable(pdf_path):
+        unreadable_pdfs.append(pdf_rel)
+        return None
+    try:
+        text = extract_pdf_text(pdf_path)
+    except Exception:
+        unreadable_pdfs.append(pdf_rel)
+        return None
+    if not text.strip():
+        empty_text_pdfs.append(pdf_rel)
+    return text
+
+
 def _judgment_document(
     pair_id: int,
     pdf_path: Path,
@@ -56,6 +76,7 @@ def _judgment_document(
     project_root: Path,
     unreadable_metadata: list[str],
     unreadable_pdfs: list[str],
+    empty_text_pdfs: list[str],
 ) -> Document:
     caption_text: str | None = None
     caption_rel: str | None = None
@@ -65,20 +86,18 @@ def _judgment_document(
             caption_text = read_caption_text(metadata_path)
         except (OSError, UnicodeDecodeError):
             unreadable_metadata.append(caption_rel)
-            caption_text = None
-
-    pdf_rel = relative_posix(pdf_path, project_root)
-    if not pdf_is_readable(pdf_path):
-        unreadable_pdfs.append(pdf_rel)
 
     return Document(
         doc_id=f"judgment:{pair_id}",
         doc_type="judgment",
         pair_id=pair_id,
-        source_pdf=pdf_rel,
+        source_pdf=relative_posix(pdf_path, project_root),
         caption_path=caption_rel,
         caption_text=caption_text,
         pdf_filename=pdf_path.name,
+        text=_extract_text(
+            pdf_path, project_root, unreadable_pdfs, empty_text_pdfs
+        ),
     )
 
 
@@ -87,6 +106,7 @@ def _statute_documents(
     project_root: Path,
     missing_pdfs: list[str],
     unreadable_pdfs: list[str],
+    empty_text_pdfs: list[str],
 ) -> tuple[list[Document], dict[str, Path]]:
     documents: list[Document] = []
     readable_paths: dict[str, Path] = {}
@@ -95,21 +115,22 @@ def _statute_documents(
         if not path.is_file():
             missing_pdfs.append(filename)
             continue
+
         pdf_rel = relative_posix(path, project_root)
-        if not pdf_is_readable(path):
-            unreadable_pdfs.append(pdf_rel)
-        else:
+        text = _extract_text(path, project_root, unreadable_pdfs, empty_text_pdfs)
+        if text is not None:
             readable_paths[filename] = path
-        stem = path.stem
+
         documents.append(
             Document(
-                doc_id=f"statute:{stem}",
+                doc_id=f"statute:{path.stem}",
                 doc_type="statute",
                 pair_id=None,
                 source_pdf=pdf_rel,
                 caption_path=None,
                 caption_text=None,
                 pdf_filename=filename,
+                text=text,
             )
         )
     return documents, readable_paths
@@ -134,11 +155,7 @@ def _identical_statute_pairs(
 
     bns = hashes.get("BNS.pdf")
     bsa = hashes.get("BSA.pdf")
-    bns_bsa: bool | None
-    if bns is None or bsa is None:
-        bns_bsa = None
-    else:
-        bns_bsa = bns == bsa
+    bns_bsa = None if bns is None or bsa is None else bns == bsa
     return bns_bsa, identical
 
 
@@ -160,6 +177,7 @@ def build_documents(
     missing_pdfs = [str(pair_id) for pair_id in scan.missing_pdf_ids]
     unreadable_metadata: list[str] = []
     unreadable_pdfs: list[str] = []
+    empty_text_pdfs: list[str] = []
 
     documents: list[Document] = []
     for pair_id in matched_pair_ids(scan):
@@ -174,6 +192,7 @@ def build_documents(
                 project_root,
                 unreadable_metadata,
                 unreadable_pdfs,
+                empty_text_pdfs,
             )
         )
 
@@ -182,6 +201,7 @@ def build_documents(
         project_root,
         missing_pdfs,
         unreadable_pdfs,
+        empty_text_pdfs,
     )
     documents.extend(statute_docs)
     bns_bsa, identical_pairs = _identical_statute_pairs(readable_statutes)
@@ -194,6 +214,7 @@ def build_documents(
         duplicate_pair_ids=duplicate_pair_ids,
         unreadable_metadata_files=unreadable_metadata,
         unreadable_pdfs=unreadable_pdfs,
+        empty_text_pdfs=empty_text_pdfs,
         bns_bsa_byte_identical=bns_bsa,
         byte_identical_statute_pairs=identical_pairs,
     )
@@ -204,9 +225,7 @@ def write_jsonl(documents: list[Document], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8", newline="\n") as handle:
         for document in documents:
-            handle.write(
-                json.dumps(document.model_dump(), ensure_ascii=False) + "\n"
-            )
+            handle.write(json.dumps(document.model_dump(), ensure_ascii=False) + "\n")
 
 
 def run_ingestion(
@@ -215,10 +234,8 @@ def run_ingestion(
     output_path: Path | None = None,
 ) -> IngestionReport:
     project_root = project_root.resolve()
-    if raw_root is None:
-        raw_root = project_root / "data" / "raw"
-    if output_path is None:
-        output_path = project_root / "data" / "processed" / "documents.jsonl"
+    raw_root = raw_root or project_root / "data" / "raw"
+    output_path = output_path or project_root / "data" / "processed" / "documents.jsonl"
 
     documents, report = build_documents(raw_root, project_root)
     write_jsonl(documents, output_path)

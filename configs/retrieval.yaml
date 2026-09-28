@@ -1,14 +1,11 @@
 # Hybrid retrieval: sparse BM25 + dense FAISS, fused with RRF.
-# Indexes are built later from user-supplied corpora only.
 
 chunking:
-  # Character-based defaults; tokenizer-aware chunking can replace these later.
   max_chars: 1200
   overlap_chars: 150
 
 preprocessing:
   lowercase: true
-  # Legal citations and section markers should be preserved in stored text.
   strip_extra_whitespace: true
 
 sparse:

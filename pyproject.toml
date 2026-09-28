@@ -7,7 +7,7 @@ name = "indian-legal-research-assistant"
 version = "0.1.0"
 description = "CPU-first hybrid BM25 + dense RAG prototype for Indian legal research"
 readme = "README.md"
-requires-python = ">=3.14,<3.15"
+requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.115.0,<0.117.0",
   "uvicorn[standard]>=0.32.0,<0.35.0",
@@ -22,6 +22,7 @@ dependencies = [
   "sentence-transformers>=3.3.0,<4.0.0",
   "faiss-cpu>=1.9.0,<1.11.0",
   "rank-bm25>=0.2.2,<0.3.0",
+  "pypdf>=5.0.0,<7.0.0",
 ]
 
 [project.optional-dependencies]
