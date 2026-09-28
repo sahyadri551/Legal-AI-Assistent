@@ -14,3 +14,6 @@ numpy>=1.26.0,<3.0.0
 sentence-transformers>=3.3.0,<4.0.0
 faiss-cpu>=1.9.0,<1.11.0
 rank-bm25>=0.2.2,<0.3.0
+
+# Tests
+pytest>=8.3.0,<9.0.0

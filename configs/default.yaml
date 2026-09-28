@@ -15,6 +15,9 @@ hardware:
 paths:
   data_raw: data/raw
   data_processed: data/processed
+  documents_jsonl: data/processed/documents.jsonl
+  judgments_raw: data/raw/Suprem Court Judgements
+  statutes_raw: data/raw/Statues
   index_bm25: data/indexes/bm25
   index_faiss: data/indexes/faiss
   experiment_runs: experiments/runs
