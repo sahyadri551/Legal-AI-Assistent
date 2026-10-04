@@ -4,18 +4,8 @@
   "functions": {
     "src/index.py": {
       "maxDuration": 300,
-      "includeFiles": ["data/indexes/**"],
-      "excludeFiles": [
-        "tests/**",
-        "docs/**",
-        "experiments/**",
-        "scripts/**",
-        "src/frontend/**",
-        "src/generation/ollama.py",
-        "data/processed/**",
-        "data/raw/**",
-        ".streamlit/**"
-      ]
+      "includeFiles": "data/indexes/**",
+      "excludeFiles": "{tests/**,docs/**,experiments/**,scripts/**,src/frontend/**,src/generation/ollama.py,data/processed/**,data/raw/**,.streamlit/**}"
     }
   }
 }
