@@ -1,7 +1,6 @@
 """Professional legal research workspace built with Streamlit."""
 from __future__ import annotations
 
-import io
 import os
 
 import streamlit as st
@@ -30,8 +29,14 @@ st.markdown(
 .stDeployButton { display:none !important; }
 [data-testid="stSidebar"] { background:var(--navy); border-right:1px solid #1e293b; }
 [data-testid="stSidebar"] .block-container { padding:1.25rem .9rem; }
-.block-container { max-width:1500px; padding:0; }
+.block-container {
+  max-width:1440px;
+  margin:0 auto;
+  padding:0 24px 110px;
+}
 section.main > div { padding-left:0; padding-right:0; }
+[data-testid="stMainBlockContainer"] { max-width:1440px; margin:0 auto; }
+[data-testid="stHorizontalBlock"] { align-items:stretch; }
 #MainMenu, footer { visibility:hidden; }
 
 .brand {
@@ -57,8 +62,16 @@ section.main > div { padding-left:0; padding-right:0; }
 .side-note { color:#94a3b8;font-size:10px;line-height:1.5;padding:.4rem .5rem; }
 
 .topbar {
-  height:64px;background:#fff;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;padding:0 24px;
+  width:100%;
+  max-width:1180px;
+  height:64px;
+  margin:0 auto;
+  background:#fff;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 24px;
 }
 .top-title { font-size:17px;font-weight:700;color:#1e293b; }
 .top-sub { font-size:10px;color:#64748b;margin-top:2px; }
@@ -70,10 +83,22 @@ section.main > div { padding-left:0; padding-right:0; }
 
 .workspace { display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:calc(100vh - 64px); }
 .chat-pane { display:flex;flex-direction:column;min-width:0; }
-.chat-scroll { padding:24px 28px 18px; }
+.chat-scroll {
+  width:100%;
+  max-width:980px;
+  margin:0 auto;
+  padding:24px 20px 90px;
+  box-sizing:border-box;
+}
 .empty {
-  min-height:430px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:calc(100vh - 330px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
   text-align:center;
+  margin:0 auto;
+  padding:0 16px;
 }
 .scale {
   width:62px;height:62px;border-radius:50%;display:grid;place-items:center;
@@ -87,6 +112,26 @@ section.main > div { padding-left:0; padding-right:0; }
   text-align:left;color:#334155;font-size:12px;min-height:72px;
 }
 .suggestion:hover { border-color:#93c5fd;background:#eff6ff; }
+[data-testid="stButton"] button {
+  border-radius:11px;
+  min-height:44px;
+  border:1px solid var(--border);
+  background:#fff;
+  color:#334155;
+  font-size:12px;
+  font-weight:600;
+}
+[data-testid="stButton"] button:hover {
+  border-color:#93c5fd;
+  background:#eff6ff;
+}
+[class*="st-key-suggestion_"] button {
+  min-height:72px;
+  text-align:left;
+  white-space:pre-line;
+  line-height:1.45;
+  padding:12px 16px;
+}
 
 .msg { display:flex;width:100%;margin-bottom:20px; }
 .msg.user { justify-content:flex-end; }
@@ -112,19 +157,40 @@ section.main > div { padding-left:0; padding-right:0; }
 .msg-actions { border-top:1px solid #eef2f7;margin-top:10px;padding-top:8px;display:flex;gap:12px; }
 .msg-actions span { color:#94a3b8;font-size:10px; }
 
-.composer-wrap { padding:14px 28px 18px;background:#fff;border-top:1px solid var(--border); }
-.composer {
-  max-width:900px;margin:auto;border:1px solid #cbd5e1;border-radius:16px;background:#fff;
-  padding:8px;box-shadow:0 3px 12px rgba(15,23,42,.05);
+.composer-wrap { display:none; }
+[data-testid="stChatInput"] {
+  width:min(900px, calc(100vw - 48px));
+  margin:0 auto;
 }
-div[data-testid="stTextArea"] textarea {
-  background:transparent!important;border:0!important;box-shadow:none!important;
-  color:#334155!important;font-size:13px!important;min-height:42px!important;
+[data-testid="stChatInput"] textarea {
+  min-height:48px !important;
+  max-height:48px !important;
+  overflow:hidden !important;
+  resize:none !important;
 }
-.composer-note { max-width:900px;margin:6px auto 0;color:#94a3b8;font-size:9px;display:flex;justify-content:space-between; }
+[data-testid="stChatInput"] > div {
+  border-radius:16px;
+  border:1px solid #cbd5e1;
+  box-shadow:0 4px 18px rgba(15,23,42,.08);
+  background:#fff;
+}
+[data-testid="stBottom"] {
+  background:rgba(248,250,252,.96);
+  backdrop-filter:blur(10px);
+  border-top:1px solid var(--border);
+  padding:10px 0 12px;
+}
+[data-testid="stBottom"] [data-testid="stHorizontalBlock"] {
+  max-width:900px;
+  margin:0 auto;
+}
 
 .context {
-  background:#fff;border-left:1px solid var(--border);min-height:100%;display:flex;flex-direction:column;
+  background:#fff;
+  border-left:1px solid var(--border);
+  min-height:calc(100vh - 64px);
+  display:flex;
+  flex-direction:column;
 }
 .context-head { height:56px;border-bottom:1px solid #eef2f7;background:#f8fafc;padding:0 16px;display:flex;align-items:center; }
 .context-title { font-size:12px;font-weight:700;color:#475569; }
@@ -142,13 +208,17 @@ div[data-testid="stTextArea"] textarea {
 .citation { display:inline-block;margin:3px 4px 3px 0;padding:4px 7px;border-radius:5px;background:#e0ecff;color:#1d4ed8;font:9px ui-monospace,SFMono-Regular,Menlo,monospace; }
 
 @media (max-width:1100px) {
-  .workspace { grid-template-columns:1fr; }
   .context { border-left:0;border-top:1px solid var(--border); }
+  .block-container { padding-left:16px; padding-right:16px; }
+  .topbar { padding:0 8px; }
 }
 @media (max-width:700px) {
-  .chat-scroll,.composer-wrap { padding-left:12px;padding-right:12px; }
+  .chat-scroll { padding-left:8px; padding-right:8px; }
   .bubble { max-width:92%; }
   .suggestion { min-height:58px; }
+  [data-testid="stChatInput"] { width:calc(100vw - 24px); }
+  .top-title { font-size:15px; }
+  .top-sub { display:none; }
 }
 </style>
 """,
@@ -193,6 +263,21 @@ def render_sidebar(backend_online: bool) -> None:
         st.markdown(
             f'<div class="side-item"><span style="color:{color}">●</span> Backend {status}</div>',
             unsafe_allow_html=True,
+        )
+        st.markdown('<div class="side-label">Session</div>', unsafe_allow_html=True)
+        st.checkbox("Include citations", key="include_citations")
+        export_text = "\n\n".join(
+            f"Q: {item['query']}\nA: {item['answer']}" for item in history
+        )
+        if st.button("Clear context", use_container_width=True):
+            clear_session()
+            st.rerun()
+        st.download_button(
+            "Export session",
+            data=export_text or "No research session yet.",
+            file_name="legal_research_session.txt",
+            mime="text/plain",
+            use_container_width=True,
         )
         st.markdown('<div class="side-note">Research assistant only. Verify important legal conclusions against primary sources and qualified legal counsel.</div>', unsafe_allow_html=True)
 
@@ -283,8 +368,8 @@ if "result" not in st.session_state:
     st.session_state.result = None
 if "error" not in st.session_state:
     st.session_state.error = None
-if "query" not in st.session_state:
-    st.session_state.query = ""
+if "chat_query" not in st.session_state:
+    st.session_state.chat_query = ""
 if "include_citations" not in st.session_state:
     st.session_state.include_citations = True
 
@@ -299,11 +384,9 @@ except BackendError:
 render_sidebar(backend_online)
 render_topbar(backend_online)
 
-left, right = st.columns([1, 0.34], gap="small")
+left, right = st.columns([1, 0.34], gap="medium", vertical_alignment="top")
 
 with left:
-    st.markdown('<div class="chat-pane"><div class="chat-scroll">', unsafe_allow_html=True)
-
     if not st.session_state.history:
         st.markdown(
             """
@@ -322,90 +405,60 @@ with left:
             ("What is the difference between regular and anticipatory bail?", "Compare the two bail mechanisms"),
             ("Explain the retrieved provisions in simple terms.", "Evidence-grounded explanation"),
         ]
-        cols = st.columns(2)
+        cols = st.columns(2, gap="small")
         for idx, (title, subtitle) in enumerate(suggestions):
             with cols[idx % 2]:
                 if st.button(f"{title}\n{subtitle}", key=f"suggestion_{idx}", use_container_width=True):
-                    st.session_state.query = title
+                    st.session_state.chat_query = title
                     st.rerun()
     else:
+        st.markdown('<div class="chat-scroll">', unsafe_allow_html=True)
         for item in st.session_state.history:
             render_user_message(item["query"])
             render_ai_message(item["answer"], item.get("citations", []))
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="composer-wrap"><div class="composer">', unsafe_allow_html=True)
-    st.text_area(
-        "Ask a legal question",
-        key="query",
-        height=70,
-        placeholder="Ask a legal question or request document analysis...",
-        label_visibility="collapsed",
-    )
-    composer_cols = st.columns([0.78, 0.22])
-    with composer_cols[0]:
-        st.caption("Powered by hybrid retrieval (RRF) and local Ollama generation.")
-    with composer_cols[1]:
-        include = st.checkbox("Citations", value=st.session_state.include_citations, key="include_citations")
-    send_cols = st.columns([0.86, 0.14])
-    with send_cols[1]:
-        ask = st.button("↑", type="primary", use_container_width=True, help="Search legal corpus")
-    st.markdown("</div></div>", unsafe_allow_html=True)
-
-    controls = st.columns([0.5, 0.5])
-    with controls[0]:
-        if st.button("Clear context", use_container_width=True):
-            clear_session()
-            st.rerun()
-    with controls[1]:
-        export_text = "\n\n".join(
-            f"Q: {item['query']}\nA: {item['answer']}" for item in st.session_state.history
-        )
-        st.download_button(
-            "Export session",
-            data=export_text or "No research session yet.",
-            file_name="legal_research_session.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
+        st.markdown("</div>", unsafe_allow_html=True)
 
     if st.session_state.error:
         st.error(st.session_state.error)
 
-    if ask:
-        query = st.session_state.query.strip()
-        if not query:
-            st.session_state.error = "Please enter a legal question."
-            st.rerun()
-        if not backend_online:
-            st.session_state.error = "The FastAPI backend is offline. Start it before asking a question."
-            st.rerun()
-
-        st.session_state.error = None
-        with st.spinner("Retrieving evidence and generating answer..."):
-            try:
-                result = client.ask(query)
-            except (BackendError, ValueError) as exc:
-                st.session_state.error = str(exc)
-                st.rerun()
-
-        citations = result.citations if include else []
-        st.session_state.history.append(
-            {
-                "query": query,
-                "answer": result.answer,
-                "citations": citations,
-                "retrieved_chunks": result.retrieved_chunks,
-                "model": result.model,
-            }
-        )
-        st.session_state.result = result
-        st.session_state.query = ""
-        st.rerun()
-
 with right:
     render_context(st.session_state.result)
+
+prompt = st.chat_input(
+    "Ask a legal question or request document analysis...",
+    key="chat_query",
+    max_chars=2000,
+)
+
+if prompt:
+    query = prompt.strip()
+    if not query:
+        st.session_state.error = "Please enter a legal question."
+        st.rerun()
+    if not backend_online:
+        st.session_state.error = "The FastAPI backend is offline. Start it before asking a question."
+        st.rerun()
+
+    st.session_state.error = None
+    with st.spinner("Retrieving evidence and generating answer..."):
+        try:
+            result = client.ask(query)
+        except (BackendError, ValueError) as exc:
+            st.session_state.error = str(exc)
+            st.rerun()
+
+    citations = result.citations if st.session_state.include_citations else []
+    st.session_state.history.append(
+        {
+            "query": query,
+            "answer": result.answer,
+            "citations": citations,
+            "retrieved_chunks": result.retrieved_chunks,
+            "model": result.model,
+        }
+    )
+    st.session_state.result = result
+    st.rerun()
 
 st.markdown(
     '<div style="text-align:center;color:#94a3b8;font-size:9px;padding:8px">LexAssist AI · Indian Legal Research Assistant · Hybrid BM25 + Dense Retrieval · Grounded Generation</div>',
