@@ -47,6 +47,9 @@ data/indexes/bm25/*
 !data/indexes/bm25/.gitkeep
 data/indexes/faiss/*
 !data/indexes/faiss/.gitkeep
+data/sessions.json
+data/sessions.json.bak
+data/sessions.json.tmp
 experiments/runs/*
 !experiments/runs/.gitkeep
 

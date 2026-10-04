@@ -1,0 +1,15 @@
+# Force the light theme the UI is designed for. Without this, a dark OS/browser
+# theme turns text white inside the white message bubbles and cards.
+[theme]
+base = "light"
+primaryColor = "#2563eb"
+backgroundColor = "#f8fafc"
+secondaryBackgroundColor = "#f1f5f9"
+textColor = "#1e293b"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+runOnSave = true
+fileWatcherType = "auto"
