@@ -14,7 +14,7 @@ def _validate_chunk_config(max_chars: int, overlap_chars: int) -> None:
         raise ValueError("overlap_chars must be >= 0 and < max_chars")
 
 
-def _chunk_text(text: str, max_chars: int, overlap_chars: int) -> list[str]:
+def chunk_text(text: str, max_chars: int = 1200, overlap_chars: int = 150) -> list[str]:
     _validate_chunk_config(max_chars, overlap_chars)
 
     words = text.split()
@@ -85,7 +85,7 @@ def chunk_documents(
             document: dict[str, Any] = json.loads(line)
             total_documents += 1
             text = str(document.get("text") or "")
-            chunks = _chunk_text(text, max_chars, overlap_chars)
+            chunks = chunk_text(text, max_chars, overlap_chars)
             if not chunks:
                 zero_text_documents += 1
 
@@ -117,3 +117,11 @@ def chunk_documents(
             sum(chunk_lengths) / len(chunk_lengths) if chunk_lengths else 0.0
         ),
     }
+
+
+# Backward-compatible alias for existing tests/integrations.
+_chunk_text = chunk_text
+
+
+# Backward-compatible alias for existing integrations.
+_chunk_text = chunk_text

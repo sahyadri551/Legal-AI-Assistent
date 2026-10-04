@@ -65,3 +65,44 @@ def test_qa_maps_rate_limit_to_too_many_requests():
     response = client.post("/qa", json={"query": "What is bail?"})
     assert response.status_code == 429
     assert "rate limit" in response.json()["detail"]
+
+
+class SearchService:
+    def retrieve(self, query, top_k=None):
+        return [RRFResult("c1", "d1", "Bail provision", 0.1, 1, 2, {"doc_type": "judgment"})]
+
+
+def test_search_endpoint():
+    client = TestClient(create_app(SearchService()))
+    response = client.post("/search", json={"query": "bail"})
+    assert response.status_code == 200
+    assert response.json()["results"][0]["chunk_id"] == "c1"
+
+
+def test_search_rejects_empty_query():
+    client = TestClient(create_app(SearchService()))
+    response = client.post("/search", json={"query": ""})
+    assert response.status_code == 422
+
+
+class DocumentService:
+    def __init__(self):
+        self.generator = object()
+
+    def answer_from_results(self, query, results):
+        return SimpleNamespace(
+            generation=SimpleNamespace(answer="[SOURCE: upload:0] Finding.", model="openai/gpt-oss-120b", citations=["upload:0"]),
+            retrieved=results,
+        )
+
+
+def test_document_analysis_rejects_non_pdf():
+    client = TestClient(create_app(DocumentService()))
+    response = client.post("/document-analysis", files={"file": ("note.txt", b"text", "text/plain")}, data={"query": "What does it say?"})
+    assert response.status_code == 400
+
+
+def test_document_analysis_rejects_empty_pdf():
+    client = TestClient(create_app(DocumentService()))
+    response = client.post("/document-analysis", files={"file": ("note.pdf", b"", "application/pdf")}, data={"query": "What does it say?"})
+    assert response.status_code == 400

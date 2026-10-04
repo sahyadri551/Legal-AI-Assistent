@@ -55,3 +55,44 @@ def test_ask_reports_backend_error(monkeypatch):
     monkeypatch.setattr(httpx, "post", fake_post)
     with pytest.raises(BackendError, match="Indexes unavailable"):
         LegalQAClient().ask("What is bail?")
+
+
+class FakeHTTPResponse:
+    def __init__(self, body, status=200):
+        self._body = body
+        self.status_code = status
+        self.text = str(body)
+        self.is_error = status >= 400
+    def json(self):
+        return self._body
+    def raise_for_status(self):
+        if self.is_error:
+            raise RuntimeError("error")
+
+
+def test_search(monkeypatch):
+    monkeypatch.setattr("httpx.post", lambda *a, **k: FakeHTTPResponse({"results": [{"chunk_id": "c1"}]}))
+    assert LegalQAClient().search("bail")[0]["chunk_id"] == "c1"
+
+
+def test_analyze_document(monkeypatch):
+    body = {"answer": "Finding", "model": "openai/gpt-oss-120b", "citations": [], "retrieved_chunks": []}
+    monkeypatch.setattr("httpx.post", lambda *a, **k: FakeHTTPResponse(body))
+    result = LegalQAClient().analyze_document(b"pdf", "case.pdf", "summarize")
+    assert result.answer == "Finding"
+
+
+class FakeHTTPResponse:
+    def __init__(self, body, status=200): self._body=body; self.status_code=status; self.text=str(body); self.is_error=status>=400
+    def json(self): return self._body
+
+
+def test_search(monkeypatch):
+    monkeypatch.setattr("httpx.post", lambda *a, **k: FakeHTTPResponse({"results": [{"chunk_id": "c1"}]}))
+    assert LegalQAClient().search("bail")[0]["chunk_id"] == "c1"
+
+
+def test_analyze_document(monkeypatch):
+    body={"answer":"Finding","model":"openai/gpt-oss-120b","citations":[],"retrieved_chunks":[]}
+    monkeypatch.setattr("httpx.post", lambda *a, **k: FakeHTTPResponse(body))
+    assert LegalQAClient().analyze_document(b"pdf","case.pdf","summarize").answer == "Finding"

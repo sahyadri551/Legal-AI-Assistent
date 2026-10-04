@@ -2,8 +2,15 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from io import BytesIO
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from pypdf import PdfReader
+
+from ingestion.chunking import chunk_text
+from retrieval.bm25 import BM25Index
+from retrieval.rrf import RRFResult
+
 from pydantic import BaseModel, Field
 
 from backend.qa import HybridQAService
@@ -21,6 +28,11 @@ class QAResponse(BaseModel):
     retrieved_chunks: list[dict]
 
 
+class SearchResponse(BaseModel):
+    query: str
+    results: list[dict]
+
+
 def create_app(service: HybridQAService | None = None) -> FastAPI:
     app = FastAPI(title="Indian Legal Research Assistant", version="0.1.0")
     app.state.service = service
@@ -28,6 +40,91 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.post("/search", response_model=SearchResponse)
+    def search(request: QARequest) -> SearchResponse:
+        try:
+            current = app.state.service
+            if current is None:
+                current = HybridQAService()
+                app.state.service = current
+            results = current.retrieve(request.query, top_k=20)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=f"Retrieval indexes are unavailable: {exc}") from exc
+        return SearchResponse(
+            query=request.query,
+            results=[asdict(result) for result in results],
+        )
+
+    @app.post("/document-analysis", response_model=QAResponse)
+    async def document_analysis(
+        file: UploadFile = File(...),
+        query: str = Form(...),
+    ) -> QAResponse:
+        if not query.strip():
+            raise HTTPException(status_code=400, detail="query must not be empty")
+        filename = file.filename or "uploaded-document.pdf"
+        if not filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Only PDF documents are supported.")
+        data = await file.read()
+        if not data:
+            raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
+        if len(data) > 15 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="PDF is too large. Maximum size is 15 MB.")
+        try:
+            reader = PdfReader(BytesIO(data))
+            pages = [(page.extract_text() or "").strip() for page in reader.pages]
+            text = "\n\n".join(page for page in pages if page)
+            chunks = chunk_text(text, max_chars=1200, overlap_chars=150)
+            if not chunks:
+                raise ValueError("No extractable text was found in the PDF.")
+            records = [
+                {
+                    "chunk_id": f"upload:{index}",
+                    "doc_id": "uploaded-document",
+                    "text": chunk,
+                    "doc_type": "uploaded_pdf",
+                    "pdf_filename": filename,
+                    "chunk_index": index,
+                }
+                for index, chunk in enumerate(chunks)
+            ]
+            index = BM25Index.build(records)
+            bm25_results = index.search(query, top_k=8)
+            fused = [
+                RRFResult(
+                    chunk_id=result.chunk_id,
+                    doc_id=result.doc_id,
+                    text=result.text,
+                    score=1.0 / (60 + result.rank),
+                    bm25_rank=result.rank,
+                    dense_rank=None,
+                    metadata=result.metadata,
+                )
+                for result in bm25_results
+            ]
+            current = app.state.service
+            if current is None:
+                current = HybridQAService()
+                app.state.service = current
+            result = current.answer_from_results(query, fused)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except TimeoutError as exc:
+            raise HTTPException(status_code=504, detail=str(exc)) from exc
+        except GroqRateLimitError as exc:
+            raise HTTPException(status_code=429, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        return QAResponse(
+            answer=result.generation.answer,
+            model=result.generation.model,
+            citations=result.generation.citations,
+            retrieved_chunks=[asdict(chunk) for chunk in result.retrieved],
+        )
 
     @app.post("/qa", response_model=QAResponse)
     def qa(request: QARequest) -> QAResponse:
