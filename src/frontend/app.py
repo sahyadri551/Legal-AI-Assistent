@@ -26,6 +26,8 @@ st.markdown(
 }
 .stApp { background:#f8fafc; color:#1e293b; }
 [data-testid="stHeader"] { background:#ffffff; }
+[data-testid="stDeployButton"] { display:none !important; }
+.stDeployButton { display:none !important; }
 [data-testid="stSidebar"] { background:var(--navy); border-right:1px solid #1e293b; }
 [data-testid="stSidebar"] .block-container { padding:1.25rem .9rem; }
 .block-container { max-width:1500px; padding:0; }
