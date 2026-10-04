@@ -34,10 +34,10 @@ class OllamaGenerator:
             excerpts.append(block); used += len(block)
             if used >= self.max_context_chars: break
         context="\n\n".join(excerpts) if excerpts else "[NO RETRIEVED EXCERPTS]"
-        return f"Question:\n{query.strip()}\n\nRetrieved excerpts:\n{context}\n\nAnswer using only these excerpts. Cite each material claim with its [SOURCE: ...] identifier. If the excerpts do not support an answer, state that the retrieved excerpts are insufficient."
+        return f"Question:\n{query.strip()}\n\nRetrieved excerpts:\n{context}\n\nAnswer using only these excerpts. Cite each material claim with its [SOURCE: ...] identifier. If the excerpts do not support an answer, state that the retrieved excerpts are insufficient. /no_think"
 
     def generate(self, query: str, results: list[RRFResult]) -> GenerationResult:
-        response=self.client.chat(model=self.model, messages=[{"role":"system","content":self.system_prompt},{"role":"user","content":self.build_prompt(query, results)}], think=False, options={"temperature":self.temperature,"top_p":self.top_p,"num_predict":self.num_predict})
+        response=self.client.chat(model=self.model, messages=[{"role":"system","content":self.system_prompt},{"role":"user","content":self.build_prompt(query, results)}], options={"temperature":self.temperature,"top_p":self.top_p,"num_predict":self.num_predict})
         message=getattr(response,"message",None); answer=getattr(message,"content",None) if message is not None else None
         if not answer and isinstance(response,dict): answer=response.get("message",{}).get("content")
         if not answer or not str(answer).strip(): raise RuntimeError("Ollama returned an empty answer")
