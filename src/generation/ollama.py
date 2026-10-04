@@ -5,6 +5,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from ollama import ResponseError
+
 from retrieval.rrf import RRFResult
 
 
@@ -38,9 +40,10 @@ class OllamaGenerator:
         timeout_seconds: int = 300,
         temperature: float = 0.2,
         top_p: float = 0.9,
-        num_predict: int = 512,
+        num_predict: int = 384,
+        num_ctx: int = 2048,
         max_chunks: int = 8,
-        max_context_chars: int = 6000,
+        max_context_chars: int = 4500,
         system_prompt: str = (
             "You are a research assistant for Indian legal questions. "
             "Answer only from the provided retrieved excerpts. "
@@ -58,6 +61,8 @@ class OllamaGenerator:
             raise ValueError("model must not be empty")
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than zero")
+        if num_predict <= 0 or num_ctx <= 0:
+            raise ValueError("generation limits must be greater than zero")
         if max_chunks <= 0 or max_context_chars <= 0:
             raise ValueError("context limits must be greater than zero")
 
@@ -71,6 +76,7 @@ class OllamaGenerator:
         self.temperature = temperature
         self.top_p = top_p
         self.num_predict = num_predict
+        self.num_ctx = num_ctx
         self.max_chunks = max_chunks
         self.max_context_chars = max_context_chars
         self.system_prompt = system_prompt
@@ -143,24 +149,36 @@ class OllamaGenerator:
         return answer.strip()
 
     def generate(self, query: str, results: list[RRFResult]) -> GenerationResult:
-        response = self.client.chat(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": self.build_prompt(query, results)},
-            ],
-            stream=True,
-            think=False,
-            keep_alive="10m",
-            format=self.RESPONSE_SCHEMA,
-            options={
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "num_predict": self.num_predict,
-            },
-        )
-
-        content = self._streamed_content(response)
+        try:
+            response = self.client.chat(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.system_prompt},
+                    {"role": "user", "content": self.build_prompt(query, results)},
+                ],
+                stream=True,
+                think=False,
+                keep_alive="10m",
+                format=self.RESPONSE_SCHEMA,
+                options={
+                    "temperature": self.temperature,
+                    "top_p": self.top_p,
+                    "num_ctx": self.num_ctx,
+                    "num_predict": self.num_predict,
+                },
+            )
+            content = self._streamed_content(response)
+        except ResponseError as exc:
+            message = str(exc)
+            lowered = message.lower()
+            if "out-of-memory" in lowered or "failed to allocate" in lowered:
+                raise RuntimeError(
+                    "Ollama ran out of CPU memory while starting the model context. "
+                    "The application requests a 2048-token context; close other "
+                    "memory-heavy applications or use a smaller Ollama model if "
+                    "the machine still cannot allocate the model."
+                ) from exc
+            raise RuntimeError(f"Ollama request failed: {message}") from exc
 
         if not content and hasattr(response, "message"):
             content = getattr(response.message, "content", None) or ""

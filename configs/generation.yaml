@@ -4,16 +4,18 @@ ollama:
   base_url: http://127.0.0.1:11434
   model: qwen3:4b
   timeout_seconds: 300
+  # Keep the KV cache small enough for CPU-only machines.
+  num_ctx: 2048
 
 sampling:
   temperature: 0.2
   top_p: 0.9
-  num_predict: 512
+  num_predict: 384
 
 context:
   # Number of fused chunks passed as grounded context.
   max_chunks: 8
-  max_context_chars: 6000
+  max_context_chars: 4500
 
 prompt:
   require_citations: true

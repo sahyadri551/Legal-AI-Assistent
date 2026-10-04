@@ -40,7 +40,9 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=502, detail=f"Ollama request failed: {exc}") from exc
         except RuntimeError as exc:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+            detail = str(exc)
+            status_code = 503 if "ran out of CPU memory" in detail.lower() else 502
+            raise HTTPException(status_code=status_code, detail=detail) from exc
 
         return QAResponse(
             answer=result.generation.answer,

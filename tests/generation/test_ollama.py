@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+from ollama import ResponseError
+
 from retrieval.rrf import RRFResult
 from generation.ollama import OllamaGenerator
 
@@ -51,6 +53,8 @@ def test_generate_extracts_only_structured_answer():
     assert client.kwargs["think"] is False
     assert client.kwargs["keep_alive"] == "10m"
     assert client.kwargs["format"] == OllamaGenerator.RESPONSE_SCHEMA
+    assert client.kwargs["options"]["num_ctx"] == 2048
+    assert client.kwargs["options"]["num_predict"] == 384
 
 
 def test_malformed_structured_output_fails():
@@ -69,5 +73,28 @@ def test_empty_answer_fails():
         OllamaGenerator(client=client).generate("Question", [result()])
     except RuntimeError as exc:
         assert "contains no answer" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+
+class OOMClient:
+    def chat(self, **kwargs):
+        def stream():
+            raise ResponseError(
+                "llama-server reported out-of-memory during startup: "
+                "failed to allocate CPU buffer",
+                500,
+            )
+            yield None
+
+        return stream()
+
+
+def test_oom_response_becomes_actionable_runtime_error():
+    try:
+        OllamaGenerator(client=OOMClient()).generate("What is bail?", [result()])
+    except RuntimeError as exc:
+        assert "ran out of CPU memory" in str(exc)
+        assert "2048-token context" in str(exc)
     else:
         raise AssertionError("expected RuntimeError")

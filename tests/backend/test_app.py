@@ -40,3 +40,17 @@ def test_qa_maps_generation_timeout():
     response = client.post("/qa", json={"query": "What is bail?"})
     assert response.status_code == 504
     assert "timed out" in response.json()["detail"]
+
+
+class OOMService:
+    def answer(self, query):
+        raise RuntimeError(
+            "Ollama ran out of CPU memory while starting the model context."
+        )
+
+
+def test_qa_maps_ollama_oom_to_service_unavailable():
+    client = TestClient(create_app(OOMService()))
+    response = client.post("/qa", json={"query": "What is bail?"})
+    assert response.status_code == 503
+    assert "ran out of CPU memory" in response.json()["detail"]
