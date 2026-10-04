@@ -108,7 +108,7 @@ Required secret:
 
     GROQ_API_KEY=<your Groq API key>
 
-The backend Blueprint uses the 1 CPU / 2 GB RAM `1c-2g` plan because the CPU dense-retrieval stack loads PyTorch and the embedding model.
+The backend Blueprint uses the Free plan (0.1 CPU / 512 MB RAM). The dense-retrieval stack loads PyTorch and the embedding model, so the backend may hit the Free plan memory limit; if that happens, the deployment requires a lighter embedding architecture or a paid backend.
 
 ### Frontend
 
@@ -141,10 +141,6 @@ Render Free web services can spin down after 15 minutes without inbound traffic.
 
 Recommended monitor type: HTTPS.
 
-The UptimeRobot free plan checks every 5 minutes. This keeps the backend receiving traffic while also providing downtime alerts.
-
-For the frontend, a second HTTPS monitor can target:
-
-    https://<frontend-service>.onrender.com/
+The UptimeRobot Free plan checks every 5 minutes. Monitoring the backend can keep it receiving traffic, but Render grants 750 Free instance hours per workspace per month. Keep the monitor on the backend only; do not also keep the frontend continuously awake. UptimeRobot does not prevent Render from restarting a service.
 
 Keep the Groq API key only in Render Environment Variables; never commit it.
