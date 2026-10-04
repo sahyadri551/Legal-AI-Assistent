@@ -80,7 +80,11 @@ def build_dense_index(chunks_path:Path,output_dir:Path,model_name:str="BAAI/bge-
     return {"chunks":len(records),"documents":len({r["doc_id"] for r in records}),"dimension":idx.index.d,"model":model_name,"device":device,"output_dir":str(output_dir)}
 class DenseRetriever:
     def __init__(self,index_dir:Path,model_name:str="BAAI/bge-small-en-v1.5",device:str="cpu",cache_dir:Path|None=None)->None:
-        self.encoder=SentenceTransformerEncoder(model_name,device,cache_dir); self.index=DenseIndex.load(index_dir)
+        if cache_dir is None:
+            self.encoder=SentenceTransformerEncoder(model_name,device)
+        else:
+            self.encoder=SentenceTransformerEncoder(model_name,device,cache_dir)
+        self.index=DenseIndex.load(index_dir)
     def retrieve(self,query:str,top_k:int=8)->list[DenseResult]:
         if not query.strip(): return []
         return self.index.search(self.encoder.encode([query]),top_k)
