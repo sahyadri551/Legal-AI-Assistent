@@ -25,8 +25,16 @@ st.markdown(
 }
 .stApp { background:#f8fafc; color:#1e293b; }
 [data-testid="stHeader"] { background:#ffffff; }
-[data-testid="stDeployButton"] { display:none !important; }
-.stDeployButton { display:none !important; }
+[data-testid="stDeployButton"],
+div.stDeployButton,
+.stDeployButton {
+  display:none !important;
+  visibility:hidden !important;
+}
+[data-testid="stToolbar"] {
+  display:none !important;
+  visibility:hidden !important;
+}
 [data-testid="stSidebar"] { background:var(--navy); border-right:1px solid #1e293b; }
 [data-testid="stSidebar"] .block-container { padding:1.25rem .9rem; }
 .block-container {
@@ -324,42 +332,45 @@ def render_ai_message(answer: str, citations: list[str]) -> None:
 
 
 def render_context(result) -> None:
-    st.markdown(
-        '<div class="context"><div class="context-head"><div class="context-title">▤ &nbsp; Retrieval Context</div></div>',
-        unsafe_allow_html=True,
-    )
-    if not result:
-        st.markdown(
-            '<div class="context-empty">Sources used for generation will appear here.</div></div>',
-            unsafe_allow_html=True,
-        )
-        return
+    with st.expander("▤  Retrieval Context", expanded=True):
+        if not result:
+            st.markdown(
+                '<div class="context-empty">Sources used for generation will appear here.</div>',
+                unsafe_allow_html=True,
+            )
+            return
 
-    for index, chunk in enumerate(result.retrieved_chunks, start=1):
-        chunk_id = chunk.get("chunk_id", "Unknown source")
-        text = chunk.get("text", "")
-        metadata = chunk.get("metadata") or {}
-        score = metadata.get("score", metadata.get("rrf_score", "—"))
-        st.markdown('<div class="source-card">', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="source-title"><span style="color:#94a3b8">{index:02d}</span> &nbsp;{chunk_id}</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="margin-top:5px"><span class="badge badge-hybrid">RRF</span></div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(f'<div class="source-text">"{text[:360]}{"..." if len(text) > 360 else ""}"</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="source-meta"><span>Relevance: {score}</span><span>Hybrid retrieval</span></div></div>',
-            unsafe_allow_html=True,
-        )
-        with st.expander("View source"):
-            st.write(text)
-            if metadata:
-                st.json(metadata)
+        for index, chunk in enumerate(result.retrieved_chunks, start=1):
+            chunk_id = chunk.get("chunk_id", "Unknown source")
+            text = chunk.get("text", "")
+            metadata = chunk.get("metadata") or {}
+            score = metadata.get("score", metadata.get("rrf_score", "—"))
 
-    st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown(
+                f'''
+                <div class="source-card">
+                  <div class="source-title">
+                    <span style="color:#94a3b8">{index:02d}</span> &nbsp;{chunk_id}
+                  </div>
+                  <div style="margin-top:5px">
+                    <span class="badge badge-hybrid">RRF</span>
+                  </div>
+                  <div class="source-text">
+                    "{text[:360]}{"..." if len(text) > 360 else ""}"
+                  </div>
+                  <div class="source-meta">
+                    <span>Relevance: {score}</span>
+                    <span>Hybrid retrieval</span>
+                  </div>
+                </div>
+                ''',
+                unsafe_allow_html=True,
+            )
+
+            with st.expander(f"View source {index:02d}", expanded=False):
+                st.write(text)
+                if metadata:
+                    st.json(metadata)
 
 
 if "history" not in st.session_state:
@@ -368,8 +379,8 @@ if "result" not in st.session_state:
     st.session_state.result = None
 if "error" not in st.session_state:
     st.session_state.error = None
-if "chat_query" not in st.session_state:
-    st.session_state.chat_query = ""
+if "pending_query" not in st.session_state:
+    st.session_state.pending_query = None
 if "include_citations" not in st.session_state:
     st.session_state.include_citations = True
 
@@ -409,7 +420,7 @@ with left:
         for idx, (title, subtitle) in enumerate(suggestions):
             with cols[idx % 2]:
                 if st.button(f"{title}\n{subtitle}", key=f"suggestion_{idx}", use_container_width=True):
-                    st.session_state.chat_query = title
+                    st.session_state.pending_query = title
                     st.rerun()
     else:
         st.markdown('<div class="chat-scroll">', unsafe_allow_html=True)
@@ -426,9 +437,10 @@ with right:
 
 prompt = st.chat_input(
     "Ask a legal question or request document analysis...",
-    key="chat_query",
     max_chars=2000,
 )
+pending_query = st.session_state.pop("pending_query", None)
+prompt = prompt or pending_query
 
 if prompt:
     query = prompt.strip()
