@@ -79,6 +79,18 @@ def test_search_endpoint():
     assert response.json()["results"][0]["chunk_id"] == "c1"
 
 
+class StatuteSearchService:
+    def retrieve(self, query, top_k=None):
+        return [RRFResult("c302", "d1", "Section 302 provision", 0.2, 1, 1, {"doc_type": "statute"})]
+
+
+def test_search_returns_statute_sources():
+    client = TestClient(create_app(StatuteSearchService()))
+    response = client.post("/search", json={"query": "section 302"})
+    assert response.status_code == 200
+    assert response.json()["results"][0]["chunk_id"] == "c302"
+
+
 def test_search_rejects_empty_query():
     client = TestClient(create_app(SearchService()))
     response = client.post("/search", json={"query": ""})

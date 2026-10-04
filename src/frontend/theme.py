@@ -597,6 +597,25 @@ BASE_CSS = """
   border-color:var(--accent) !important;
   color:var(--accent-ink) !important;
 }
+[data-testid="stChatInput"] button#lexassist-voice.is-listening {
+  background:var(--accent) !important;
+  border-color:var(--accent) !important;
+  color:#fff !important;
+}
+[data-testid="stChatInput"] button#lexassist-voice svg {
+  width:20px !important;
+  height:20px !important;
+  fill:none !important;
+  stroke:currentColor !important;
+  stroke-width:1.8 !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
+}
+[data-testid="stChatInput"] button#lexassist-voice:hover {
+  background:var(--accent-soft) !important;
+  border-color:var(--accent) !important;
+  color:var(--accent-ink) !important;
+}
 [data-testid="stChatInput"] button#lexassist-voice:disabled {
   opacity:.55 !important;
   cursor:not-allowed !important;
@@ -620,7 +639,23 @@ BASE_CSS = """
   color:#fff !important;
   border-radius:10px;
 }
-[data-testid="stChatInput"] button:hover { background:var(--accent-dark) !important; }
+[data-testid="stChatInput"] button#lexassist-voice {
+  width:38px !important;
+  height:38px !important;
+  min-width:38px !important;
+  min-height:38px !important;
+  margin:0 4px 0 0 !important;
+  padding:8px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border:1px solid var(--border) !important;
+  background:var(--surface2) !important;
+  color:var(--muted) !important;
+  border-radius:10px !important;
+  box-shadow:none !important;
+}
+[data-testid="stChatInput"] button#lexassist-voice:hover { background:var(--accent-dark) !important; }
 [data-testid="stChatInput"] button:disabled { background:var(--border-strong) !important; }
 
 /* ================= Responsive ================= */

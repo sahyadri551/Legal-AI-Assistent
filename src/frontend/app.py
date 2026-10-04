@@ -414,40 +414,38 @@ prompt = prompt or st.session_state.pop("pending_query", None)
 components.html(
     """<script>
     (() => {
-      const parentWindow = window.parent;
-      const doc = parentWindow.document;
-      const buttonId = 'lexassist-voice';
+      const host = window.parent;
+      const doc = host.document;
+      const BUTTON_ID = 'lexassist-voice';
+      const STATE_KEY = '__lexassistVoiceState';
 
-      const getChatInput = () =>
+      if (host[STATE_KEY]?.timer) {
+        host.clearInterval(host[STATE_KEY].timer);
+      }
+
+      const state = host[STATE_KEY] || { timer: null, recognition: null, listening: false };
+      host[STATE_KEY] = state;
+
+      const getRoot = () =>
         doc.querySelector('[data-testid="stChatInput"]') ||
         doc.querySelector('.stChatFloatingInputContainer');
 
-      const getTextarea = (root) =>
-        root?.querySelector('textarea[data-testid="stChatInput"]') ||
-        root?.querySelector('textarea[data-testid="stChatInputTextArea"]') ||
-        root?.querySelector('textarea');
-
-      const setTextareaValue = (textarea, value) => {
-        const setter = Object.getOwnPropertyDescriptor(
-          parentWindow.HTMLTextAreaElement.prototype, 'value'
-        )?.set;
-        if (setter) setter.call(textarea, value);
-        else textarea.value = value;
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        textarea.dispatchEvent(new Event('change', { bubbles: true }));
-        textarea.focus();
-      };
+      const getTextarea = root => root?.querySelector('textarea');
 
       const install = () => {
-        const root = getChatInput();
-        if (!root || root.querySelector('#' + buttonId)) return;
+        const root = getRoot();
+        if (!root) return;
+
+        const existing = doc.getElementById(BUTTON_ID);
+        if (existing && root.contains(existing)) return;
+        if (existing) existing.remove();
 
         const buttons = Array.from(root.querySelectorAll('button'));
         const submit = buttons[buttons.length - 1];
-        if (!submit || !submit.parentElement) return;
+        if (!submit?.parentElement) return;
 
         const button = doc.createElement('button');
-        button.id = buttonId;
+        button.id = BUTTON_ID;
         button.type = 'button';
         button.setAttribute('aria-label', 'Voice input');
         button.title = 'Voice input';
@@ -460,23 +458,26 @@ components.html(
         submit.parentElement.insertBefore(button, submit);
 
         const SpeechRecognition =
-          parentWindow.SpeechRecognition || parentWindow.webkitSpeechRecognition;
+          host.SpeechRecognition || host.webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
+          button.title = 'Voice input is not supported by this browser';
           button.disabled = true;
-          button.title = 'Voice input is not supported in this browser';
           return;
         }
 
         const recognition = new SpeechRecognition();
-        let listening = false;
-        recognition.lang = parentWindow.navigator.language || 'en-IN';
+        state.recognition = recognition;
+        state.listening = false;
+        recognition.lang = host.navigator.language || 'en-IN';
         recognition.interimResults = false;
         recognition.continuous = false;
         recognition.maxAlternatives = 1;
 
-        button.onclick = () => {
-          if (listening) {
+        button.onclick = event => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (state.listening) {
             recognition.stop();
             return;
           }
@@ -486,45 +487,58 @@ components.html(
         };
 
         recognition.onstart = () => {
-          listening = true;
+          state.listening = true;
           button.classList.add('is-listening');
           button.title = 'Listening… click to stop';
         };
 
         recognition.onend = () => {
-          listening = false;
+          state.listening = false;
           button.classList.remove('is-listening');
           button.title = 'Voice input';
         };
 
         recognition.onerror = () => {
-          listening = false;
+          state.listening = false;
           button.classList.remove('is-listening');
           button.title = 'Voice input';
         };
 
-        recognition.onresult = (event) => {
+        recognition.onresult = event => {
           const transcript = Array.from(event.results)
             .map(result => result[0]?.transcript || '')
             .join(' ')
             .trim();
           const textarea = getTextarea(root);
-          if (transcript && textarea) setTextareaValue(textarea, transcript);
+          if (!transcript || !textarea) return;
+
+          const setter = Object.getOwnPropertyDescriptor(
+            host.HTMLTextAreaElement.prototype,
+            'value'
+          )?.set;
+          if (setter) setter.call(textarea, transcript);
+          else textarea.value = transcript;
+
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.dispatchEvent(new Event('change', { bubbles: true }));
+          textarea.focus();
         };
       };
 
       const observer = new MutationObserver(install);
       observer.observe(doc.body, { childList: true, subtree: true });
       install();
-      const timer = parentWindow.setInterval(install, 500);
-      parentWindow.setTimeout(() => {
+      state.timer = host.setInterval(install, 300);
+      host.setTimeout(() => {
         observer.disconnect();
-        parentWindow.clearInterval(timer);
-      }, 30000);
+        if (state.timer) host.clearInterval(state.timer);
+        state.timer = null;
+      }, 60000);
     })();
     </script>""",
-    height=0,
+    height=1,
 )
+
 
 render_sidebar()
 render_topbar(backend_online)
