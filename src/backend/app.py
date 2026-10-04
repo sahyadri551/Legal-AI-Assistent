@@ -48,7 +48,14 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
             if current is None:
                 current = HybridQAService()
                 app.state.service = current
-            results = current.retrieve(request.query, top_k=20)
+            results = [
+                result
+                for result in current.retrieve(request.query, top_k=20)
+                if any(
+                    marker in str((result.metadata or {}).get("doc_type", "")).lower()
+                    for marker in ("judgment", "case", "decision")
+                )
+            ]
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except FileNotFoundError as exc:

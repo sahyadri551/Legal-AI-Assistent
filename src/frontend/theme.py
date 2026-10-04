@@ -477,6 +477,55 @@ BASE_CSS = """
   word-break:break-word;
 }
 
+/* ================= Feature workspaces ================= */
+.st-key-document_upload {
+  width:min(760px, 100%) !important;
+  max-width:760px !important;
+}
+.st-key-document_upload [data-testid="stFileUploaderDropzone"] {
+  min-height:84px !important;
+  border:1px dashed var(--border-strong) !important;
+  border-radius:12px !important;
+  background:var(--surface2) !important;
+}
+.st-key-document_upload [data-testid="stFileUploaderDropzoneInstructions"] {
+  padding:10px 14px !important;
+}
+.doc-upload-label {
+  margin:18px 0 8px;
+  color:var(--text);
+  font-size:14px;
+  font-weight:600;
+}
+.feature-empty {
+  max-width:760px;
+  margin:36px auto;
+  padding:28px;
+  display:flex;
+  align-items:flex-start;
+  gap:16px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--surface);
+  box-shadow:0 1px 2px var(--shadow);
+}
+.feature-empty-icon {
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:var(--accent-soft);
+  color:var(--accent-ink);
+  font-size:24px;
+  flex:none;
+}
+.feature-empty p {
+  margin:4px 0 0;
+  color:var(--muted);
+  font-size:13px;
+}
+
 /* ================= Input area ================= */
 [data-testid="stBottom"],
 [data-testid="stBottom"] > div,
@@ -526,6 +575,45 @@ BASE_CSS = """
 [data-testid="stChatInput"]:focus-within {
   border-color:var(--accent);
   box-shadow:0 0 0 3px var(--accent-soft);
+}
+[data-testid="stChatInput"] button#lexassist-voice {
+  width:38px !important;
+  height:38px !important;
+  min-width:38px !important;
+  min-height:38px !important;
+  margin:0 4px 0 0 !important;
+  padding:8px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border:1px solid var(--border) !important;
+  background:var(--surface2) !important;
+  color:var(--muted) !important;
+  border-radius:10px !important;
+  box-shadow:none !important;
+}
+[data-testid="stChatInput"] button#lexassist-voice:hover {
+  background:var(--accent-soft) !important;
+  border-color:var(--accent) !important;
+  color:var(--accent-ink) !important;
+}
+[data-testid="stChatInput"] button#lexassist-voice:disabled {
+  opacity:.55 !important;
+  cursor:not-allowed !important;
+}
+[data-testid="stChatInput"] button#lexassist-voice.is-listening {
+  background:var(--accent) !important;
+  border-color:var(--accent) !important;
+  color:#fff !important;
+}
+[data-testid="stChatInput"] button#lexassist-voice svg {
+  width:20px !important;
+  height:20px !important;
+  fill:none !important;
+  stroke:currentColor !important;
+  stroke-width:1.8 !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
 }
 [data-testid="stChatInput"] button {
   background:var(--accent) !important;

@@ -350,12 +350,21 @@ def scroll_to_latest() -> None:
 
 
 # ------------------------------------------------------------- feature views
-def render_search_results(results: list[dict]) -> None:
-    if not results:
-        st.info("No matching case-law sources were found.")
-        return
+def render_search_workspace() -> None:
     st.markdown("### Case Law Search")
-    st.caption(f"{len(results)} ranked case-law sources")
+    st.caption("Search the indexed judgments and return ranked legal sources.")
+    results = st.session_state.search_results
+    if not results:
+        st.markdown(
+            '<div class="feature-empty">'
+            '<div class="feature-empty-icon">⌕</div>'
+            '<div><strong>Search indexed case law</strong>'
+            '<p>Use the search box below to find relevant judgments and legal sources.</p></div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+    st.caption(f'{len(results)} ranked case-law sources for "{esc(st.session_state.search_query)}"')
     for index, result in enumerate(results, start=1):
         metadata = result.get("metadata") or {}
         title = source_label(str(result.get("chunk_id", "Unknown source")))
@@ -370,11 +379,13 @@ def render_search_results(results: list[dict]) -> None:
 def render_document_workspace() -> None:
     st.markdown("### Document Analysis")
     st.caption("Upload a PDF, then ask questions grounded only in that document.")
+    st.markdown('<div class="doc-upload-label">Upload a PDF document</div>', unsafe_allow_html=True)
     uploaded = st.file_uploader(
-        "Upload a PDF document",
+        "Choose PDF",
         type=["pdf"],
         key="document_upload",
         help="Maximum 15 MB. Text-based PDFs are supported.",
+        label_visibility="collapsed",
     )
     if uploaded is not None:
         st.session_state.document_file = (uploaded.name, uploaded.getvalue())
@@ -403,57 +414,113 @@ prompt = prompt or st.session_state.pop("pending_query", None)
 components.html(
     """<script>
     (() => {
-      const parent = window.parent;
-      const doc = parent.document;
+      const parentWindow = window.parent;
+      const doc = parentWindow.document;
+      const buttonId = 'lexassist-voice';
+
+      const getChatInput = () =>
+        doc.querySelector('[data-testid="stChatInput"]') ||
+        doc.querySelector('.stChatFloatingInputContainer');
+
+      const getTextarea = (root) =>
+        root?.querySelector('textarea[data-testid="stChatInput"]') ||
+        root?.querySelector('textarea[data-testid="stChatInputTextArea"]') ||
+        root?.querySelector('textarea');
+
+      const setTextareaValue = (textarea, value) => {
+        const setter = Object.getOwnPropertyDescriptor(
+          parentWindow.HTMLTextAreaElement.prototype, 'value'
+        )?.set;
+        if (setter) setter.call(textarea, value);
+        else textarea.value = value;
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.dispatchEvent(new Event('change', { bubbles: true }));
+        textarea.focus();
+      };
+
       const install = () => {
-        const root = doc.querySelector('[data-testid="stChatInput"]');
-        const submit = root && root.querySelector('button');
-        if (!root || !submit || root.querySelector('#lexassist-voice')) return;
-        const SpeechRecognition = parent.SpeechRecognition || parent.webkitSpeechRecognition;
-        if (!SpeechRecognition) return;
+        const root = getChatInput();
+        if (!root || root.querySelector('#' + buttonId)) return;
+
+        const buttons = Array.from(root.querySelectorAll('button'));
+        const submit = buttons[buttons.length - 1];
+        if (!submit || !submit.parentElement) return;
+
         const button = doc.createElement('button');
-        button.id = 'lexassist-voice';
+        button.id = buttonId;
         button.type = 'button';
         button.setAttribute('aria-label', 'Voice input');
         button.title = 'Voice input';
-        button.innerHTML = '<span>●</span>';
+        button.innerHTML =
+          '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+          '<path d="M12 14a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 0 0-7 0v5A3.5 3.5 0 0 0 12 14Z"/>' +
+          '<path d="M18 10.5a6 6 0 0 1-12 0M12 16.5V21M8.5 21h7"/>' +
+          '</svg>';
+
         submit.parentElement.insertBefore(button, submit);
-        let listening = false;
+
+        const SpeechRecognition =
+          parentWindow.SpeechRecognition || parentWindow.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+          button.disabled = true;
+          button.title = 'Voice input is not supported in this browser';
+          return;
+        }
+
         const recognition = new SpeechRecognition();
-        recognition.lang = navigator.language || 'en-IN';
-        recognition.interimResults = true;
+        let listening = false;
+        recognition.lang = parentWindow.navigator.language || 'en-IN';
+        recognition.interimResults = false;
         recognition.continuous = false;
+        recognition.maxAlternatives = 1;
+
         button.onclick = () => {
-          if (listening) { recognition.stop(); return; }
-          try { recognition.start(); } catch (_) {}
+          if (listening) {
+            recognition.stop();
+            return;
+          }
+          try {
+            recognition.start();
+          } catch (_) {}
         };
+
         recognition.onstart = () => {
           listening = true;
           button.classList.add('is-listening');
+          button.title = 'Listening… click to stop';
         };
+
         recognition.onend = () => {
           listening = false;
           button.classList.remove('is-listening');
+          button.title = 'Voice input';
         };
+
         recognition.onerror = () => {
           listening = false;
           button.classList.remove('is-listening');
+          button.title = 'Voice input';
         };
+
         recognition.onresult = (event) => {
-          let transcript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-          }
-          const textarea = root.querySelector('textarea');
-          if (!textarea) return;
-          textarea.value = transcript.trim();
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          const transcript = Array.from(event.results)
+            .map(result => result[0]?.transcript || '')
+            .join(' ')
+            .trim();
+          const textarea = getTextarea(root);
+          if (transcript && textarea) setTextareaValue(textarea, transcript);
         };
       };
+
       const observer = new MutationObserver(install);
-      observer.observe(doc.body, {childList:true, subtree:true});
+      observer.observe(doc.body, { childList: true, subtree: true });
       install();
-      setTimeout(() => observer.disconnect(), 10000);
+      const timer = parentWindow.setInterval(install, 500);
+      parentWindow.setTimeout(() => {
+        observer.disconnect();
+        parentWindow.clearInterval(timer);
+      }, 30000);
     })();
     </script>""",
     height=0,
@@ -472,9 +539,8 @@ with st.container(key="workspace"):
 
     if mode == "document":
         render_document_workspace()
-    elif mode == "search" and st.session_state.search_results:
-        st.caption(f'Search: "{esc(st.session_state.search_query)}"')
-        render_search_results(st.session_state.search_results)
+    elif mode == "search":
+        render_search_workspace()
     else:
         session = store.get(active_id) or {"turns": []}
         turns: list[dict] = session["turns"]

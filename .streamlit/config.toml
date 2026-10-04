@@ -13,3 +13,4 @@ gatherUsageStats = false
 [server]
 runOnSave = true
 fileWatcherType = "auto"
+maxUploadSize = 15
