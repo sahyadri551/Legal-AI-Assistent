@@ -526,6 +526,55 @@ BASE_CSS = """
   font-size:13px;
 }
 
+/* ================= Workspace nav buttons (sidebar) ================= */
+[class*="st-key-workspace_"] button {
+  background:transparent !important; border:none !important; box-shadow:none !important;
+  color:#94a3b8 !important; border-radius:8px; min-height:40px; padding:8px 12px;
+  justify-content:flex-start; font-size:14px; font-weight:500;
+}
+[class*="st-key-workspace_"] button > div { width:100%; justify-content:flex-start; }
+[class*="st-key-workspace_"] button p { color:inherit !important; text-align:left; }
+[class*="st-key-workspace_"] button:hover { background:rgba(255,255,255,.06) !important; color:#e2e8f0 !important; }
+[class*="st-key-workspace_"] button[kind="primary"],
+[class*="st-key-workspace_"] button[data-testid="stBaseButton-primary"] {
+  background:rgba(30,58,138,.42) !important; color:#dbeafe !important;
+}
+
+/* ================= Suggestion cards ================= */
+[class*="st-key-sugg_"] { position:relative; }
+[class*="st-key-sugg_"] .sugg-card {
+  border:1px solid var(--border); background:var(--surface); border-radius:12px;
+  padding:14px 16px; min-height:78px; box-shadow:0 1px 2px var(--shadow);
+  transition:border-color .12s, background .12s;
+}
+[class*="st-key-sugg_"] .sugg-title { margin:0 0 4px; font-size:14px; font-weight:600; color:var(--text); line-height:1.4; }
+[class*="st-key-sugg_"] .sugg-sub { margin:0; font-size:12.5px; color:var(--muted); }
+[class*="st-key-sugg_"]:hover .sugg-card { border-color:var(--accent); background:var(--accent-soft); }
+[class*="st-key-suggbtn_"] {
+  position:absolute !important; inset:0; width:100% !important; height:100% !important; z-index:2;
+}
+[class*="st-key-suggbtn_"] button {
+  width:100% !important; height:100% !important; min-height:78px; opacity:0; cursor:pointer;
+}
+
+/* ================= Keep the accent blue even if config.toml is not loaded ================= */
+[data-testid="stChatInput"] [data-baseweb="textarea"],
+[data-testid="stChatInput"] [data-baseweb="base-input"] { border-color:transparent !important; }
+[data-testid="stChatInput"]:focus-within { border-color:var(--accent) !important; }
+[data-testid="stChatInput"] textarea { caret-color:var(--accent); }
+[data-testid="stSidebar"] button[kind="primary"] { border-color:transparent !important; }
+
+/* ================= Case-law search results ================= */
+[class*="st-key-workspace"] [data-testid="stExpander"] {
+  border:1px solid var(--border) !important; border-radius:12px !important;
+  background:var(--surface) !important; margin-bottom:10px; box-shadow:0 1px 2px var(--shadow);
+}
+[class*="st-key-workspace"] [data-testid="stExpander"] summary { padding:12px 16px; }
+[class*="st-key-workspace"] [data-testid="stExpander"] summary p { font-weight:600; color:var(--text) !important; }
+[class*="st-key-workspace"] [data-testid="stExpander"] summary:hover { background:var(--accent-soft); border-radius:12px; }
+.result-meta { color:var(--muted); font-size:12.5px; margin:0 0 10px; }
+.result-body { color:var(--body); font-size:14px; line-height:1.7; white-space:pre-wrap; }
+
 /* ================= Input area ================= */
 [data-testid="stBottom"],
 [data-testid="stBottom"] > div,
@@ -576,64 +625,6 @@ BASE_CSS = """
   border-color:var(--accent);
   box-shadow:0 0 0 3px var(--accent-soft);
 }
-[data-testid="stChatInput"] button#lexassist-voice {
-  width:38px !important;
-  height:38px !important;
-  min-width:38px !important;
-  min-height:38px !important;
-  margin:0 4px 0 0 !important;
-  padding:8px !important;
-  display:inline-flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  border:1px solid var(--border) !important;
-  background:var(--surface2) !important;
-  color:var(--muted) !important;
-  border-radius:10px !important;
-  box-shadow:none !important;
-}
-[data-testid="stChatInput"] button#lexassist-voice:hover {
-  background:var(--accent-soft) !important;
-  border-color:var(--accent) !important;
-  color:var(--accent-ink) !important;
-}
-[data-testid="stChatInput"] button#lexassist-voice.is-listening {
-  background:var(--accent) !important;
-  border-color:var(--accent) !important;
-  color:#fff !important;
-}
-[data-testid="stChatInput"] button#lexassist-voice svg {
-  width:20px !important;
-  height:20px !important;
-  fill:none !important;
-  stroke:currentColor !important;
-  stroke-width:1.8 !important;
-  stroke-linecap:round !important;
-  stroke-linejoin:round !important;
-}
-[data-testid="stChatInput"] button#lexassist-voice:hover {
-  background:var(--accent-soft) !important;
-  border-color:var(--accent) !important;
-  color:var(--accent-ink) !important;
-}
-[data-testid="stChatInput"] button#lexassist-voice:disabled {
-  opacity:.55 !important;
-  cursor:not-allowed !important;
-}
-[data-testid="stChatInput"] button#lexassist-voice.is-listening {
-  background:var(--accent) !important;
-  border-color:var(--accent) !important;
-  color:#fff !important;
-}
-[data-testid="stChatInput"] button#lexassist-voice svg {
-  width:20px !important;
-  height:20px !important;
-  fill:none !important;
-  stroke:currentColor !important;
-  stroke-width:1.8 !important;
-  stroke-linecap:round !important;
-  stroke-linejoin:round !important;
-}
 [data-testid="stChatInput"] button {
   background:var(--accent) !important;
   color:#fff !important;
@@ -654,8 +645,35 @@ BASE_CSS = """
   color:var(--muted) !important;
   border-radius:10px !important;
   box-shadow:none !important;
+  cursor:pointer !important;
+  pointer-events:auto !important;
+  position:relative;
+  z-index:5;
 }
-[data-testid="stChatInput"] button#lexassist-voice:hover { background:var(--accent-dark) !important; }
+[data-testid="stChatInput"] button#lexassist-voice:hover {
+  background:var(--accent-soft) !important;
+  border-color:var(--accent) !important;
+  color:var(--accent-ink) !important;
+}
+[data-testid="stChatInput"] button#lexassist-voice.is-listening {
+  background:var(--accent) !important;
+  border-color:var(--accent) !important;
+  color:#fff !important;
+  animation:lexPulse 1.2s ease-in-out infinite;
+}
+[data-testid="stChatInput"] button#lexassist-voice svg {
+  width:20px !important;
+  height:20px !important;
+  fill:none !important;
+  stroke:currentColor !important;
+  stroke-width:1.8 !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
+}
+@keyframes lexPulse {
+  0%,100% { box-shadow:0 0 0 0 var(--accent-soft); }
+  50% { box-shadow:0 0 0 6px var(--accent-soft); }
+}
 [data-testid="stChatInput"] button:disabled { background:var(--border-strong) !important; }
 
 /* ================= Responsive ================= */

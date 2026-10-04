@@ -36,7 +36,18 @@ class HybridQAService:
         self.rrf_k = rrf_k
         self.retrieval_k = retrieval_k
         self.top_k = top_k
-        self.generator = generator or GroqGenerator()
+        # Created lazily so retrieval/search works without a Groq API key.
+        self._generator = generator
+
+    @property
+    def generator(self) -> GroqGenerator:
+        if self._generator is None:
+            self._generator = GroqGenerator()
+        return self._generator
+
+    @generator.setter
+    def generator(self, value: GroqGenerator) -> None:
+        self._generator = value
 
     def retrieve(self, query: str, top_k: int | None = None) -> list[RRFResult]:
         if not query.strip():

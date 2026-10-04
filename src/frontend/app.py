@@ -354,6 +354,10 @@ def render_search_workspace() -> None:
     st.markdown("### Case Law Search")
     st.caption("Search the indexed judgments and return ranked legal sources.")
     results = st.session_state.search_results
+    if st.session_state.error:
+        st.error(st.session_state.error)
+    if not results and st.session_state.search_query and not st.session_state.error:
+        st.info(f'No matching sources found for "{st.session_state.search_query}". Try different keywords.')
     if not results:
         st.markdown(
             '<div class="feature-empty">'
@@ -369,16 +373,24 @@ def render_search_workspace() -> None:
         metadata = result.get("metadata") or {}
         title = source_label(str(result.get("chunk_id", "Unknown source")))
         filename = str(metadata.get("pdf_filename") or "")
+        caption = first_line(metadata.get("caption_text"))
         score = float(result.get("score", 0.0))
-        with st.container(border=True):
-            st.markdown(f"**{index}. {esc(title)}**")
-            st.caption(f"{esc(filename) if filename else 'Judgment'} · RRF {score:.4f}")
-            st.write(str(result.get("text") or ""))
+        heading = f"{index}. {md_escape(title)}"
+        if caption:
+            heading += f" — {md_escape(caption[:90])}"
+        with st.expander(heading, expanded=False):
+            st.markdown(
+                f'<div class="result-meta">{esc(filename) if filename else "Judgment"} · RRF {score:.4f}</div>'
+                f'<div class="result-body">{esc(str(result.get("text") or ""))}</div>',
+                unsafe_allow_html=True,
+            )
 
 
 def render_document_workspace() -> None:
     st.markdown("### Document Analysis")
     st.caption("Upload a PDF, then ask questions grounded only in that document.")
+    if st.session_state.error:
+        st.error(st.session_state.error)
     st.markdown('<div class="doc-upload-label">Upload a PDF document</div>', unsafe_allow_html=True)
     uploaded = st.file_uploader(
         "Choose PDF",
@@ -411,133 +423,142 @@ placeholders = {
 prompt = st.chat_input(placeholders[st.session_state.feature_mode], max_chars=2000)
 prompt = prompt or st.session_state.pop("pending_query", None)
 
-components.html(
-    """<script>
-    (() => {
-      const host = window.parent;
-      const doc = host.document;
-      const BUTTON_ID = 'lexassist-voice';
-      const STATE_KEY = '__lexassistVoiceState';
+VOICE_JS = r"""
+(function () {
+  if (window.__lexVoiceV2) return;
+  window.__lexVoiceV2 = true;
 
-      if (host[STATE_KEY]?.timer) {
-        host.clearInterval(host[STATE_KEY].timer);
+  var BTN = 'lexassist-voice';
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = null, listening = false, baseText = '';
+
+  function root() { return document.querySelector('[data-testid="stChatInput"]'); }
+  function area() { var r = root(); return r && r.querySelector('textarea'); }
+  function btn() { return document.getElementById(BTN); }
+
+  function toast(msg) {
+    var old = document.getElementById('lexassist-voice-toast');
+    if (old) old.remove();
+    var t = document.createElement('div');
+    t.id = 'lexassist-voice-toast';
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);' +
+      'background:#0f172a;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;' +
+      'z-index:999999;box-shadow:0 4px 18px rgba(0,0,0,.25);max-width:80vw;';
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 4500);
+  }
+
+  function setText(value) {
+    var t = area();
+    if (!t) return;
+    var setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+    setter.call(t, value);
+    t.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function paint(on, title) {
+    var b = btn();
+    if (!b) return;
+    b.classList.toggle('is-listening', !!on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.title = title || 'Voice input';
+  }
+
+  var ERRORS = {
+    'not-allowed': 'Microphone access is blocked. Allow the microphone for this site (lock icon in the address bar) and try again.',
+    'service-not-allowed': 'Speech recognition is blocked in this browser. Try Chrome or Edge.',
+    'no-speech': 'No speech detected. Click the mic and speak again.',
+    'audio-capture': 'No microphone found. Connect one and try again.',
+    'network': 'Speech recognition needs an internet connection (Chrome/Edge send audio to a speech service).',
+    'language-not-supported': 'This language is not supported for voice input.'
+  };
+
+  function start() {
+    if (!SR) { toast('Voice input is not supported in this browser. Use Chrome or Edge.'); return; }
+    rec = new SR();
+    rec.lang = 'en-IN';
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    var t = area();
+    baseText = t ? t.value.trim() : '';
+
+    rec.onstart = function () { listening = true; paint(true, 'Listening... click to stop'); };
+    rec.onend = function () { listening = false; paint(false); var a = area(); if (a) a.focus(); };
+    rec.onerror = function (e) {
+      listening = false; paint(false);
+      toast(ERRORS[e.error] || ('Voice input error: ' + e.error));
+    };
+    rec.onresult = function (e) {
+      var finalText = '', interim = '';
+      for (var i = 0; i < e.results.length; i++) {
+        var chunk = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalText += chunk; else interim += chunk;
       }
+      setText((baseText + ' ' + finalText + interim).trim());
+    };
+    try { rec.start(); } catch (err) { toast('Could not start voice input: ' + err.message); }
+  }
 
-      const state = host[STATE_KEY] || { timer: null, recognition: null, listening: false };
-      host[STATE_KEY] = state;
+  // Delegated, capture-phase click handler: survives Streamlit re-rendering the button.
+  document.addEventListener('click', function (ev) {
+    var b = ev.target && ev.target.closest ? ev.target.closest('#' + BTN) : null;
+    if (!b) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (listening && rec) { try { rec.stop(); } catch (e) {} } else { start(); }
+  }, true);
 
-      const getRoot = () =>
-        doc.querySelector('[data-testid="stChatInput"]') ||
-        doc.querySelector('.stChatFloatingInputContainer');
+  function install() {
+    var r = root();
+    if (!r) return;
+    var existing = btn();
+    if (existing && r.contains(existing)) return;
+    if (existing) existing.remove();
 
-      const getTextarea = root => root?.querySelector('textarea');
+    var submit = r.querySelector('[data-testid="stChatInputSubmitButton"]');
+    if (!submit) {
+      var all = r.querySelectorAll('button');
+      submit = all[all.length - 1];
+    }
+    if (!submit || !submit.parentElement) return;
 
-      const install = () => {
-        const root = getRoot();
-        if (!root) return;
+    var b = document.createElement('button');
+    b.id = BTN;
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Voice input');
+    b.title = SR ? 'Voice input' : 'Voice input is not supported in this browser';
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+      '<path d="M12 14a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 0 0-7 0v5A3.5 3.5 0 0 0 12 14Z"/>' +
+      '<path d="M18 10.5a6 6 0 0 1-12 0M12 16.5V21M8.5 21h7"/></svg>';
+    b.style.pointerEvents = 'auto';
+    b.style.position = 'relative';
+    b.style.zIndex = '5';
+    submit.parentElement.insertBefore(b, submit);
+    if (listening) paint(true, 'Listening... click to stop');
+  }
 
-        const existing = doc.getElementById(BUTTON_ID);
-        if (existing && root.contains(existing)) return;
-        if (existing) existing.remove();
+  new MutationObserver(install).observe(document.body, { childList: true, subtree: true });
+  install();
+})();
+"""
 
-        const buttons = Array.from(root.querySelectorAll('button'));
-        const submit = buttons[buttons.length - 1];
-        if (!submit?.parentElement) return;
 
-        const button = doc.createElement('button');
-        button.id = BUTTON_ID;
-        button.type = 'button';
-        button.setAttribute('aria-label', 'Voice input');
-        button.title = 'Voice input';
-        button.innerHTML =
-          '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-          '<path d="M12 14a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 0 0-7 0v5A3.5 3.5 0 0 0 12 14Z"/>' +
-          '<path d="M18 10.5a6 6 0 0 1-12 0M12 16.5V21M8.5 21h7"/>' +
-          '</svg>';
+def install_voice_input() -> None:
+    """Inject the mic button script into the host page once (not into a throw-away iframe)."""
+    components.html(
+        "<script>(function(){"
+        "var d=window.parent.document;"
+        "if(d.getElementById('lexassist-voice-script'))return;"
+        "var s=d.createElement('script');s.id='lexassist-voice-script';"
+        f"s.textContent={json.dumps(VOICE_JS)};"
+        "d.head.appendChild(s);})();</script>",
+        height=0,
+    )
 
-        submit.parentElement.insertBefore(button, submit);
 
-        const SpeechRecognition =
-          host.SpeechRecognition || host.webkitSpeechRecognition;
-
-        if (!SpeechRecognition) {
-          button.title = 'Voice input is not supported by this browser';
-          button.disabled = true;
-          return;
-        }
-
-        const recognition = new SpeechRecognition();
-        state.recognition = recognition;
-        state.listening = false;
-        recognition.lang = host.navigator.language || 'en-IN';
-        recognition.interimResults = false;
-        recognition.continuous = false;
-        recognition.maxAlternatives = 1;
-
-        button.onclick = event => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (state.listening) {
-            recognition.stop();
-            return;
-          }
-          try {
-            recognition.start();
-          } catch (_) {}
-        };
-
-        recognition.onstart = () => {
-          state.listening = true;
-          button.classList.add('is-listening');
-          button.title = 'Listening… click to stop';
-        };
-
-        recognition.onend = () => {
-          state.listening = false;
-          button.classList.remove('is-listening');
-          button.title = 'Voice input';
-        };
-
-        recognition.onerror = () => {
-          state.listening = false;
-          button.classList.remove('is-listening');
-          button.title = 'Voice input';
-        };
-
-        recognition.onresult = event => {
-          const transcript = Array.from(event.results)
-            .map(result => result[0]?.transcript || '')
-            .join(' ')
-            .trim();
-          const textarea = getTextarea(root);
-          if (!transcript || !textarea) return;
-
-          const setter = Object.getOwnPropertyDescriptor(
-            host.HTMLTextAreaElement.prototype,
-            'value'
-          )?.set;
-          if (setter) setter.call(textarea, transcript);
-          else textarea.value = transcript;
-
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          textarea.dispatchEvent(new Event('change', { bubbles: true }));
-          textarea.focus();
-        };
-      };
-
-      const observer = new MutationObserver(install);
-      observer.observe(doc.body, { childList: true, subtree: true });
-      install();
-      state.timer = host.setInterval(install, 300);
-      host.setTimeout(() => {
-        observer.disconnect();
-        if (state.timer) host.clearInterval(state.timer);
-        state.timer = null;
-      }, 60000);
-    })();
-    </script>""",
-    height=1,
-)
+install_voice_input()
 
 
 render_sidebar()
@@ -616,15 +637,20 @@ with st.container(key="workspace"):
 
     if mode == "search" and prompt:
         if not backend_online:
-            st.error("The FastAPI backend is offline.")
+            st.session_state.error = "The FastAPI backend is offline. Start it on port 8000 and refresh."
+            st.rerun()
         else:
+            st.session_state.error = None
             try:
-                st.session_state.search_results = client.search(prompt)
+                with st.spinner("Searching indexed case law..."):
+                    found = client.search(prompt)
+                st.session_state.search_results = found
                 st.session_state.search_query = prompt.strip()
-                st.rerun()
             except (BackendError, ValueError) as exc:
+                st.session_state.search_results = []
+                st.session_state.search_query = ""
                 st.session_state.error = str(exc)
-                st.rerun()
+            st.rerun()
 
     if mode == "document" and prompt:
         document = st.session_state.document_file
