@@ -9,7 +9,11 @@ from frontend.client import BackendError, LegalQAClient
 def test_health_uses_backend(monkeypatch):
     def fake_get(url, timeout):
         assert url.endswith("/health")
-        return httpx.Response(200, json={"status": "ok"})
+        return httpx.Response(
+            200,
+            json={"status": "ok"},
+            request=httpx.Request("GET", url),
+        )
 
     monkeypatch.setattr(httpx, "get", fake_get)
     assert LegalQAClient().health() is True
@@ -26,6 +30,7 @@ def test_ask_parses_response(monkeypatch):
                 "citations": ["c1"],
                 "retrieved_chunks": [{"chunk_id": "c1", "text": "Bail."}],
             },
+            request=httpx.Request("POST", url),
         )
 
     monkeypatch.setattr(httpx, "post", fake_post)
@@ -41,7 +46,11 @@ def test_ask_rejects_empty_query():
 
 def test_ask_reports_backend_error(monkeypatch):
     def fake_post(url, json, timeout):
-        return httpx.Response(503, json={"detail": "Indexes unavailable"})
+        return httpx.Response(
+            503,
+            json={"detail": "Indexes unavailable"},
+            request=httpx.Request("POST", url),
+        )
 
     monkeypatch.setattr(httpx, "post", fake_post)
     with pytest.raises(BackendError, match="Indexes unavailable"):
