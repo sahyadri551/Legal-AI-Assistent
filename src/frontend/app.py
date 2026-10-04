@@ -1,6 +1,7 @@
 """LexAssist AI: legal research workspace (Streamlit)."""
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -20,7 +21,7 @@ from frontend.formatting import (
     user_text,
 )
 from frontend.icons import icon
-from frontend.sessions import SessionStore
+from frontend.sessions import THEMES, SessionStore
 from frontend.theme import build_css
 
 st.set_page_config(
@@ -34,6 +35,8 @@ STORE_PATH = Path(os.getenv("SESSIONS_PATH", "data/sessions.json"))
 USER_NAME = os.getenv("LEXASSIST_USER", "Legal Researcher")
 USER_ROLE = os.getenv("LEXASSIST_ROLE", "Local workspace")
 MAX_SIDEBAR_SESSIONS = 12
+LS_THEME_KEY = "lexassist_theme"
+LS_SESSION_KEY = "lexassist_active_id"
 
 SUGGESTIONS = [
     ("What is bail?", "Definition and core bail provisions"),
@@ -48,8 +51,76 @@ SUGGESTIONS = [
     ("Explain the retrieved provisions in simple terms.", "Evidence-grounded explanation"),
 ]
 
+
+# ---------------------------------------------------------- backend cache
+@st.cache_resource(show_spinner=False)
+def _get_store(path: Path) -> SessionStore:
+    """Load the session store once per server process and reuse it.
+
+    ``SessionStore`` still writes straight through to disk on every mutation
+    (new session, new turn, theme change, ...), so data is never stale - this
+    cache only stops Streamlit from re-reading and re-parsing the whole
+    sessions.json file on every rerun, which otherwise happens on nearly
+    every click.
+    """
+    return SessionStore(path)
+
+
+# ------------------------------------------------------- client-side cache
+def _bootstrap_from_local_storage() -> None:
+    """Once per browser tab: if the URL has no theme/session hint yet, pull
+    the last-used values out of localStorage so a fresh tab (or a server
+    restart) opens with the user's previous theme instead of flashing the
+    default light theme first.
+    """
+    if st.session_state.get("_ls_bootstrapped"):
+        return
+    st.session_state._ls_bootstrapped = True
+
+    if st.query_params.get("theme") or st.query_params.get("sid"):
+        return
+
+    components.html(
+        f"""
+        <script>
+        (function() {{
+            try {{
+                const theme = localStorage.getItem({json.dumps(LS_THEME_KEY)});
+                const sid = localStorage.getItem({json.dumps(LS_SESSION_KEY)});
+                if (!theme && !sid) {{ return; }}
+                const url = new URL(window.parent.location.href);
+                if (theme) url.searchParams.set("theme", theme);
+                if (sid) url.searchParams.set("sid", sid);
+                window.parent.location.replace(url.toString());
+            }} catch (e) {{}}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _sync_client_cache(theme: str, active_id: str) -> None:
+    """Mirror the active theme/session into the URL and localStorage so
+    they survive a hard refresh or reopening the app in a new tab."""
+    st.query_params["theme"] = theme
+    st.query_params["sid"] = active_id
+    components.html(
+        f"""
+        <script>
+        try {{
+            localStorage.setItem({json.dumps(LS_THEME_KEY)}, {json.dumps(theme)});
+            localStorage.setItem({json.dumps(LS_SESSION_KEY)}, {json.dumps(active_id)});
+        }} catch (e) {{}}
+        </script>
+        """,
+        height=0,
+    )
+
+
 # ------------------------------------------------------------------ state
-store = SessionStore(STORE_PATH)
+store = _get_store(STORE_PATH)
+_bootstrap_from_local_storage()
 
 for key, default in (
     ("error", None),
@@ -61,11 +132,18 @@ for key, default in (
         st.session_state[key] = default
 
 if "theme" not in st.session_state:
-    st.session_state.theme = store.theme
+    qp_theme = st.query_params.get("theme")
+    st.session_state.theme = qp_theme if qp_theme in THEMES else store.theme
+
 if store.get(st.session_state.get("active_id")) is None:
-    st.session_state.active_id = store.initial_active_id()
+    qp_sid = st.query_params.get("sid")
+    if qp_sid and store.get(qp_sid) is not None:
+        st.session_state.active_id = qp_sid
+    else:
+        st.session_state.active_id = store.initial_active_id()
 
 active_id: str = st.session_state.active_id
+_sync_client_cache(st.session_state.theme, active_id)
 st.markdown(build_css(st.session_state.theme), unsafe_allow_html=True)
 
 
@@ -128,8 +206,8 @@ def render_topbar(backend_online: bool) -> None:
     dark = st.session_state.theme == "dark"
 
     with st.container(key="topbar"):
-        title_col, status_col, theme_col, clear_col, export_col = st.columns(
-            [10, 3.4, 1, 1, 1], gap="small", vertical_alignment="center"
+        title_col, status_col, cite_col, theme_col, clear_col, export_col = st.columns(
+            [10, 3.2, 2.6, 1, 1, 1], gap="small", vertical_alignment="center"
         )
         title_col.markdown(
             '<div class="top-title">Legal Research QA</div>'
@@ -141,6 +219,12 @@ def render_topbar(backend_online: bool) -> None:
             f'<span class="status-dot" style="background:{color}"></span>{status}</span></div>',
             unsafe_allow_html=True,
         )
+        with cite_col:
+            st.checkbox(
+                "Include Citations",
+                key="include_citations",
+                help="Show [SOURCE: ...] citation tags inline in answers",
+            )
         with theme_col:
             if st.button(
                 ":material/light_mode:" if dark else ":material/dark_mode:",
@@ -263,9 +347,6 @@ except BackendError:
 # chat_input must be top-level so Streamlit pins it to the bottom of the page.
 prompt = st.chat_input("Ask a legal question or request document analysis...", max_chars=2000)
 prompt = prompt or st.session_state.pop("pending_query", None)
-
-with st.container(key="citetoggle"):
-    st.checkbox("Include Citations", key="include_citations")
 
 render_sidebar()
 render_topbar(backend_online)

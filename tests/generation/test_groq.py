@@ -49,7 +49,7 @@ def test_generate_uses_gpt_oss_120b_and_strict_json():
     assert generated.citations == ["c1"]
     assert client.chat.completions.kwargs["stream"] is False
     assert client.chat.completions.kwargs["reasoning_effort"] == "medium"
-    assert client.chat.completions.kwargs["include_reasoning"] is False
+    assert client.chat.completions.kwargs["extra_body"] == {"include_reasoning": False}
     assert client.chat.completions.kwargs["max_completion_tokens"] == 2048
     assert client.chat.completions.kwargs["response_format"]["type"] == "json_schema"
     assert client.chat.completions.kwargs["response_format"]["json_schema"]["strict"] is True

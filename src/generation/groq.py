@@ -204,9 +204,9 @@ class GroqGenerator:
                     top_p=self.top_p,
                     max_completion_tokens=self.max_completion_tokens,
                     reasoning_effort=self.reasoning_effort,
-                    include_reasoning=False,
                     response_format=self.RESPONSE_SCHEMA,
                     stream=False,
+                    extra_body={"include_reasoning": False},
                 )
                 content = response.choices[0].message.content or ""
                 break

@@ -96,8 +96,13 @@ BASE_CSS = """
   padding:0; margin:0; background:transparent;
 }
 [data-testid="stSidebarHeader"] button, [data-testid="stSidebarCollapseButton"] button { color:#94a3b8; }
-[data-testid="stSidebarUserContent"] { padding:0 12px !important; }
-[data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] { min-height:100vh; gap:.15rem; }
+/* stSidebarUserContent is the scrolling ancestor for the sticky user box below:
+   it must have a bounded height + overflow for position:sticky to hold the
+   box at the bottom once the session list grows past one screen. */
+[data-testid="stSidebarUserContent"] {
+  padding:0 12px !important; height:100vh; overflow-y:auto; overflow-x:hidden;
+}
+[data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] { min-height:100%; gap:.15rem; }
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { margin:0; color:inherit !important; }
 
 .brand {
@@ -144,9 +149,12 @@ BASE_CSS = """
 [class*="st-key-srow_"]:hover [data-testid="stColumn"]:last-child { opacity:1; }
 @media (hover:none) { [class*="st-key-srow_"] [data-testid="stColumn"]:last-child { opacity:1; } }
 
+/* Sticky "Legal Researcher / Local workspace" footer: stays pinned to the
+   bottom-left of the sidebar even once the session list scrolls. */
 .st-key-userbox {
+  position:sticky; bottom:0; z-index:5;
   margin:auto -12px 0; padding:16px; border-top:1px solid var(--sidebar-border);
-  background:rgba(30,41,59,.3);
+  background:var(--sidebar);
 }
 .userbox { display:flex; align-items:center; gap:12px; }
 .userbox .avatar {
@@ -163,12 +171,28 @@ BASE_CSS = """
   box-shadow:0 1px 3px var(--shadow);
 }
 .st-key-topbar [data-testid="stHorizontalBlock"] { flex-wrap:nowrap !important; gap:4px; align-items:center; }
-.st-key-topbar [data-testid="stColumn"] { min-width:0 !important; }
+/* Only the title column is allowed to shrink/truncate. Every other column
+   (status pill, citations toggle, action buttons) keeps its natural content
+   width via flex:0 0 auto - without this, Streamlit's ratio-based column
+   widths plus a shared min-width:0 let columns collapse toward zero and
+   spill their contents over their neighbours instead of wrapping. */
+.st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+  flex:1 1 auto !important; min-width:0 !important;
+}
+.st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:first-child) {
+  flex:0 0 auto !important; min-width:max-content !important;
+}
 .st-key-topbar [data-testid="stMarkdownContainer"] { margin:0; }
 .stApp:has([data-testid="stSidebar"][aria-expanded="false"]) .st-key-topbar { padding-left:76px; }
 .stApp:has([data-testid="stSidebarCollapsedControl"]) .st-key-topbar { padding-left:76px; }
-.top-title { font-size:18px; font-weight:600; color:var(--text); line-height:1.25; }
-.top-sub { font-size:12px; color:var(--muted); margin-top:1px; }
+.top-title {
+  font-size:18px; font-weight:600; color:var(--text); line-height:1.25;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.top-sub {
+  font-size:12px; color:var(--muted); margin-top:1px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
 .pill-wrap { display:flex; justify-content:flex-end; }
 .status-pill {
   display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
@@ -176,6 +200,13 @@ BASE_CSS = """
   padding:5px 12px; color:var(--body); font-size:12px; font-weight:500;
 }
 .status-dot { width:8px; height:8px; border-radius:50%; }
+/* Include-citations toggle: lives inline in the top bar now, instead of a
+   fixed-position element that used to overlap the footer note. */
+.st-key-topbar [data-testid="stCheckbox"] { display:flex; align-items:center; justify-content:flex-end; }
+.st-key-topbar [data-testid="stCheckbox"] label {
+  gap:6px; white-space:nowrap; font-size:12.5px; color:var(--muted);
+}
+.st-key-topbar [data-testid="stCheckbox"] label p { font-size:12.5px !important; color:var(--muted) !important; }
 .st-key-topbar [data-testid="stButton"] button,
 .st-key-topbar [data-testid="stDownloadButton"] button {
   background:transparent; border:none; color:var(--muted); width:38px; min-height:38px;
@@ -221,7 +252,7 @@ BASE_CSS = """
 .msg-user .bubble {
   max-width:78%; background:var(--accent-dark); padding:13px 18px;
   border-radius:16px 4px 16px 16px; font-size:15px; line-height:1.6;
-  overflow-wrap:anywhere; box-shadow:0 1px 2px var(--shadow);
+  overflow-wrap:break-word; word-break:normal; box-shadow:0 1px 2px var(--shadow);
 }
 .msg-user .bubble, .msg-user .bubble * { color:#fff !important; }
 .msg-user .avatar {
@@ -239,7 +270,7 @@ BASE_CSS = """
 }
 [class*="st-key-ai_"] [data-testid="stMarkdownContainer"] p,
 [class*="st-key-ai_"] [data-testid="stMarkdownContainer"] li {
-  font-size:15px; line-height:1.75; color:var(--body); overflow-wrap:anywhere;
+  font-size:15px; line-height:1.75; color:var(--body); overflow-wrap:break-word; word-break:normal;
 }
 .ai-foot { border-top:1px solid var(--border); padding-top:10px; color:var(--muted); font-size:12px; }
 .source-tag {
@@ -281,11 +312,11 @@ BASE_CSS = """
   border:1px solid var(--border); border-radius:10px; padding:12px; gap:.4rem; background:var(--surface);
 }
 [class*="st-key-src_cited_"] { border-color:var(--accent); background:var(--cited-bg); }
-.source-title { font-size:13px; font-weight:600; color:var(--text); line-height:1.4; overflow-wrap:anywhere; }
-.source-sub { font-size:12px; color:var(--muted); margin-top:2px; overflow-wrap:anywhere; }
+.source-title { font-size:13px; font-weight:600; color:var(--text); line-height:1.4; overflow-wrap:break-word; word-break:normal; }
+.source-sub { font-size:12px; color:var(--muted); margin-top:2px; overflow-wrap:break-word; word-break:normal; }
 .source-text {
   font:italic 13px/1.65 'Merriweather', Georgia, serif; color:var(--body); margin-top:8px;
-  overflow-wrap:anywhere;
+  overflow-wrap:break-word; word-break:normal;
 }
 .badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
 .badge { padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; }
@@ -300,7 +331,7 @@ BASE_CSS = """
 [class*="st-key-src_"] [data-testid="stExpander"] summary p { color:var(--accent-ink) !important; }
 .excerpt-full {
   font:13px/1.7 'Merriweather', Georgia, serif; color:var(--body); white-space:pre-wrap;
-  overflow-wrap:anywhere; max-height:320px; overflow-y:auto;
+  overflow-wrap:break-word; word-break:normal; max-height:320px; overflow-y:auto;
 }
 
 /* ================= Input area ================= */
@@ -327,8 +358,6 @@ BASE_CSS = """
 [data-testid="stChatInput"] button { background:var(--accent); color:#fff; border-radius:10px; }
 [data-testid="stChatInput"] button:hover { background:var(--accent-dark); }
 [data-testid="stChatInput"] button:disabled { background:var(--border-strong); }
-.st-key-citetoggle { position:fixed; right:32px; bottom:10px; z-index:1000; width:auto; }
-.st-key-citetoggle label p { font-size:12px !important; color:var(--muted) !important; }
 
 /* ================= Responsive ================= */
 @media (max-width:1100px) {
@@ -336,11 +365,11 @@ BASE_CSS = """
   .st-key-context { position:static; }
   .st-key-topbar { padding:0 16px; }
   [data-testid="stBottomBlockContainer"] { padding:12px 20px 12px; }
-  .st-key-citetoggle { right:20px; }
 }
 @media (max-width:700px) {
   .st-key-workspace { padding:14px 12px 150px; }
   .top-sub { display:none; }
+  .st-key-topbar [data-testid="stCheckbox"] { display:none; }
   .msg-user .bubble { max-width:90%; }
   [class*="st-key-ai_"] { margin-left:0; padding:14px; }
   [class*="st-key-ai_"]::before { display:none; }
