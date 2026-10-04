@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from ingestion.chunking import chunk_documents
+from ingestion.chunking import _chunk_text, chunk_documents, chunk_text
 
 
 def test_chunk_documents_preserves_metadata_and_overlap(tmp_path: Path) -> None:
