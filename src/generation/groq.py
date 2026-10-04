@@ -188,8 +188,47 @@ class GroqGenerator:
 
         return self.retry_base_seconds * (2 ** attempt)
 
-    def generate(self, query: str, results: list[RRFResult]) -> GenerationResult:
-        prompt = self.build_prompt(query, results)
+    def generate_with_context(
+        self,
+        query: str,
+        context_blocks: list[str],
+        *,
+        source_prefix: str = "SOURCE",
+    ) -> GenerationResult:
+        if not query.strip():
+            raise ValueError("query must not be empty")
+        if not context_blocks:
+            raise ValueError("context must not be empty")
+        excerpts = []
+        used = 0
+        for index, block in enumerate(context_blocks[: self.max_chunks], 1):
+            source = f"[{source_prefix}: {index}]"
+            text = str(block).strip()
+            if not text:
+                continue
+            item = f"{source}\n{text}"
+            if used + len(item) > self.max_context_chars:
+                remaining = self.max_context_chars - used
+                if remaining <= 0:
+                    break
+                item = item[:remaining]
+            excerpts.append(item)
+            used += len(item)
+            if used >= self.max_context_chars:
+                break
+        if not excerpts:
+            raise ValueError("context must not be empty")
+        prompt = (
+            f"Question:\n{query.strip()}\n\n"
+            f"Retrieved excerpts:\n{'\\n\\n'.join(excerpts)}\n\n"
+            "Return a JSON object with exactly one field named "
+            '"answer". The answer field must contain only the final answer. '
+            "Use only the provided excerpts. Cite every material claim with "
+            f"its [{source_prefix}: N] identifier. If the excerpts are insufficient, say so."
+        )
+        return self._generate_prompt(prompt, source_prefix)
+
+    def _generate_prompt(self, prompt: str, source_prefix: str = "SOURCE") -> GenerationResult:
         messages = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": prompt},
@@ -225,12 +264,15 @@ class GroqGenerator:
 
         if not str(content).strip():
             raise RuntimeError("Groq returned an empty answer")
-
         answer = self._extract_answer(str(content).strip())
+        return GenerationResult(answer, self.model, [])
+
+    def generate(self, query: str, results: list[RRFResult]) -> GenerationResult:
+        prompt = self.build_prompt(query, results)
+        result = self._generate_prompt(prompt)
         citations = [
             result.chunk_id
             for result in results[: self.max_chunks]
-            if result.chunk_id in answer
+            if result.chunk_id in result.answer
         ]
-
-        return GenerationResult(answer, self.model, citations)
+        return GenerationResult(result.answer, result.model, citations)
