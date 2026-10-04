@@ -17,6 +17,7 @@ def test_generate_returns_citation():
     c=FakeClient()
     r=OllamaGenerator(client=c).generate("What is bail?",[result()])
     assert r.model=="qwen3:4b" and r.citations==["c1"] and c.kwargs["options"]["temperature"]==0.2
+    assert c.kwargs["think"] is False
 
 def test_empty_answer_fails():
     class Empty:
