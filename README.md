@@ -1,12 +1,12 @@
 # Indian Legal Research Assistant (Hybrid RAG)
 
-CPU-first research prototype for Indian legal research using hybrid BM25 + dense retrieval, Reciprocal Rank Fusion, FastAPI, Streamlit, and Ollama (qwen3:4b). Embeddings use BAAI/bge-small-en-v1.5 on CPU. There is no local LoRA/QLoRA training.
+CPU-first research prototype for Indian legal research using hybrid BM25 + dense retrieval, Reciprocal Rank Fusion, FastAPI, Streamlit, and Groq. Embeddings use BAAI/bge-small-en-v1.5 on CPU. There is no local LoRA/QLoRA training.
 
 ## Application
 
-The application provides PDF ingestion, normalization, deterministic chunking, BM25 and dense retrieval with Reciprocal Rank Fusion, grounded Qwen3 generation through Ollama, FastAPI endpoints, and a Streamlit frontend for questions, answers, citations, and retrieved sources.
+The application provides PDF ingestion, normalization, deterministic chunking, BM25 and dense retrieval with Reciprocal Rank Fusion, grounded Groq generation, FastAPI endpoints, and a Streamlit frontend for questions, answers, citations, and retrieved sources.
 
-No legal corpus, embeddings, or index artifacts are committed.
+BM25 and FAISS retrieval index artifacts required by the deployed backend are committed under `data/indexes/`.
 
 ## Run
 
@@ -14,7 +14,7 @@ Install dependencies:
 
     pip install -e ".[dev]"
 
-Make sure Ollama is running and qwen3:4b is available.
+Set `GROQ_API_KEY` in your local `.env`.
 
 Start the backend:
 
@@ -28,7 +28,7 @@ In a second PowerShell window, start the frontend:
 
 Open the Streamlit URL shown by the command, normally http://localhost:8501.
 
-The frontend calls the FastAPI backend at http://127.0.0.1:8000 by default. Set BACKEND_URL to use another backend URL.
+The frontend calls `BACKEND_URL`, defaulting to http://127.0.0.1:8000.
 
 ## API
 
@@ -36,7 +36,11 @@ Health: GET /health
 
 Legal QA: POST /qa with {"query": "What are the powers of the High Court regarding bail?"}
 
-The response includes the generated answer, model name, citation IDs, and retrieved chunks used for generation.
+Case-law search: POST /search with {"query": "Section 302 IPC"}
+
+Document analysis: POST /document-analysis with a PDF file and query.
+
+The QA response includes the generated answer, model name, citation IDs, and retrieved chunks used for generation.
 
 ## Data pipeline
 
@@ -55,68 +59,92 @@ Build the BM25 and FAISS indexes using the retrieval CLIs after the processed co
 
 | Path | Role |
 |------|------|
-| configs/ | Application and retrieval/generation/evaluation settings |
+| configs/ | Application, retrieval, generation, and evaluation settings |
 | src/ingestion/ | Document matching, PDF extraction, normalization, and chunking |
 | src/retrieval/ | BM25, FAISS, and RRF |
-| src/generation/ | Ollama grounded generation |
+| src/generation/ | Groq grounded generation |
 | src/backend/ | FastAPI application and QA service |
 | src/frontend/ | Streamlit UI and backend client |
 | src/evaluation/ | Evaluation harness |
 | data/raw/ | User-supplied source documents |
 | data/processed/ | Generated documents and chunks |
-| data/indexes/ | Generated BM25 and FAISS artifacts |
+| data/indexes/ | BM25 and FAISS artifacts |
 | experiments/runs/ | Evaluation outputs |
 
 ## Constraints
 
 - Run embeddings and serving on CPU.
-- Generate with a running Ollama server; do not load chat-model weights in-process.
-- Do not commit corpora, embeddings, or invented legal content.
+- Generate through the Groq API; do not load chat-model weights in-process.
+- Do not commit raw corpora or invented legal content.
 
 ## Research question
 
 Whether hybrid BM25 + dense retrieval with RRF improves retrieval and answer quality versus BM25-only and dense-only baselines for Indian legal question answering, with generation held fixed.
 
-## Vercel deployment
+## Render deployment
 
-The FastAPI backend is prepared for Vercel. The existing Streamlit frontend remains a separate application and can continue to run locally or on a Streamlit-compatible host.
+Render is the deployment target for both application services:
 
-### Configure Vercel
+- `legal-ai-backend`: FastAPI, BM25 + FAISS + Groq.
+- `legal-ai-frontend`: Streamlit UI.
 
-Set these environment variables in the Vercel project:
+The repository includes `render.yaml` as a Render Blueprint. It wires the frontend's `BACKEND_URL` to the backend's Render URL and the backend's `FRONTEND_ORIGINS` to the frontend's Render URL.
+
+### Backend
+
+Build command:
+
+    pip install -r requirements.txt
+
+Start command:
+
+    PYTHONPATH=src uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+
+Health check:
+
+    /health
+
+Required secret:
 
     GROQ_API_KEY=<your Groq API key>
-    GROQ_BASE_URL=https://api.groq.com/openai/v1
-    GROQ_MODEL=openai/gpt-oss-120b
-    DOCUMENT_MAX_MB=4
-    FRONTEND_ORIGINS=<your Streamlit frontend HTTPS origin>
 
-Vercel's function request-body limit is 4.5 MB, so document uploads should be kept below that limit. The backend defaults to 15 MB for local development; set `DOCUMENT_MAX_MB=4` in Vercel.
+The backend Blueprint uses the 1 CPU / 2 GB RAM `1c-2g` plan because the CPU dense-retrieval stack loads PyTorch and the embedding model.
 
-The committed BM25 and FAISS artifacts are included in the Vercel function.
+### Frontend
 
-Install the Vercel CLI:
+Build command:
 
-    npm install -g vercel
+    pip install -r requirements.txt
 
-Run a local Vercel-style check:
+Start command:
 
-    vercel dev
+    streamlit run src/frontend/app.py --server.address 0.0.0.0 --server.port $PORT
 
-Create a preview deployment:
+`BACKEND_URL` is supplied automatically by the Blueprint.
 
-    vercel
+### Render setup
 
-Deploy production:
+1. Push the repository to GitHub.
+2. In Render, create a new Blueprint and select this repository.
+3. Approve the two services defined in `render.yaml`.
+4. Enter `GROQ_API_KEY` when Render prompts for the secret.
+5. Deploy both services.
+6. Open the Streamlit frontend URL and verify the backend status is online.
 
-    vercel --prod
+Render supports Python web services with a pip build command and a host/port-bound start command. The service must listen on `0.0.0.0` and Render supplies the `PORT` value.
 
-If the Python function exceeds the standard bundle limit because of the frozen ML dependencies, enable Vercel Large Functions with:
+### UptimeRobot
 
-    VERCEL_SUPPORT_LARGE_FUNCTIONS=1
+Render Free web services can spin down after 15 minutes without inbound traffic. Use UptimeRobot to monitor the backend health endpoint:
 
-For bundle diagnostics, temporarily add:
+    https://<backend-service>.onrender.com/health
 
-    VERCEL_ANALYZE_BUILD_OUTPUT=1
+Recommended monitor type: HTTPS.
 
-Keep the Groq API key only in Vercel Environment Variables; never commit it.
+The UptimeRobot free plan checks every 5 minutes. This keeps the backend receiving traffic while also providing downtime alerts.
+
+For the frontend, a second HTTPS monitor can target:
+
+    https://<frontend-service>.onrender.com/
+
+Keep the Groq API key only in Render Environment Variables; never commit it.

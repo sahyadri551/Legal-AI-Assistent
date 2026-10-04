@@ -1,6 +1,7 @@
 """HTTP client for the FastAPI legal QA backend."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,8 +21,8 @@ class QAAnswer:
 
 
 class LegalQAClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:8000", timeout: float = 180.0) -> None:
-        self.base_url = base_url.rstrip("/")
+    def __init__(self, base_url: str | None = None, timeout: float = 180.0) -> None:
+        self.base_url = (base_url or os.getenv("BACKEND_URL", "http://127.0.0.1:8000")).rstrip("/")
         self.timeout = timeout
 
     def health(self) -> bool:

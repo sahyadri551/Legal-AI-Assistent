@@ -19,6 +19,12 @@ def test_health_uses_backend(monkeypatch):
     assert LegalQAClient().health() is True
 
 
+def test_client_uses_backend_url_env(monkeypatch):
+    monkeypatch.setenv("BACKEND_URL", "https://legal-ai-backend.example.com")
+    client = LegalQAClient()
+    assert client.base_url == "https://legal-ai-backend.example.com"
+
+
 def test_ask_parses_response(monkeypatch):
     def fake_post(url, json, timeout):
         assert json == {"query": "What is bail?"}
@@ -26,7 +32,7 @@ def test_ask_parses_response(monkeypatch):
             200,
             json={
                 "answer": "[SOURCE: c1] Bail.",
-                "model": "qwen3:4b",
+                "model": "openai/gpt-oss-120b",
                 "citations": ["c1"],
                 "retrieved_chunks": [{"chunk_id": "c1", "text": "Bail."}],
             },
@@ -63,8 +69,10 @@ class FakeHTTPResponse:
         self.status_code = status
         self.text = str(body)
         self.is_error = status >= 400
+
     def json(self):
         return self._body
+
     def raise_for_status(self):
         if self.is_error:
             raise RuntimeError("error")
@@ -80,19 +88,3 @@ def test_analyze_document(monkeypatch):
     monkeypatch.setattr("httpx.post", lambda *a, **k: FakeHTTPResponse(body))
     result = LegalQAClient().analyze_document(b"pdf", "case.pdf", "summarize")
     assert result.answer == "Finding"
-
-
-class FakeHTTPResponse:
-    def __init__(self, body, status=200): self._body=body; self.status_code=status; self.text=str(body); self.is_error=status>=400
-    def json(self): return self._body
-
-
-def test_search(monkeypatch):
-    monkeypatch.setattr("httpx.post", lambda *a, **k: FakeHTTPResponse({"results": [{"chunk_id": "c1"}]}))
-    assert LegalQAClient().search("bail")[0]["chunk_id"] == "c1"
-
-
-def test_analyze_document(monkeypatch):
-    body={"answer":"Finding","model":"openai/gpt-oss-120b","citations":[],"retrieved_chunks":[]}
-    monkeypatch.setattr("httpx.post", lambda *a, **k: FakeHTTPResponse(body))
-    assert LegalQAClient().analyze_document(b"pdf","case.pdf","summarize").answer == "Finding"
