@@ -350,7 +350,7 @@ has_sources = bool(latest and latest.get("retrieved_chunks"))
 
 with st.container(key="workspace"):
     if has_sources:
-        chat_area, context_area = st.columns([1, 0.38], gap="large")
+        chat_area, context_area = st.columns([1, 0.34], gap="medium")
     else:
         chat_area, context_area = st.container(), None
 
