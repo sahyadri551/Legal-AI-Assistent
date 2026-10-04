@@ -169,17 +169,25 @@ BASE_CSS = """
   justify-content:center; background:var(--surface); border-bottom:1px solid var(--border);
   box-shadow:0 1px 3px var(--shadow);
 }
-.st-key-topbar [data-testid="stHorizontalBlock"] { flex-wrap:nowrap !important; gap:4px; align-items:center; }
+.st-key-topbar [data-testid="stHorizontalBlock"] {
+  flex-wrap:nowrap !important; gap:16px !important; align-items:center;
+  width:100%; min-width:0;
+}
+.st-key-topbar [data-testid="stColumn"] { min-width:0 !important; }
+.st-key-topbar [data-testid="stColumn"] > [data-testid="stVerticalBlock"] { min-width:0 !important; }
 
 /* Flex control: Title is compact, status pill fills the middle space to push right elements */
 .st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
-  flex: 0 0 auto !important; min-width:max-content !important; padding-right: 16px;
+  flex: 3.2 1 0 !important; min-width:0 !important; padding-right:0;
 }
 .st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) {
-  flex: 1 1 auto !important; min-width:0 !important;
+  flex: 1.4 1 0 !important; min-width:0 !important;
 }
-.st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:first-child):not(:nth-child(2)) {
-  flex:0 0 auto !important; min-width:max-content !important;
+.st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3) {
+  flex: 2 1 0 !important; min-width:0 !important;
+}
+.st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(4) {
+  flex: .65 0 44px !important; min-width:44px !important;
 }
 .st-key-topbar [data-testid="stMarkdownContainer"] { margin:0; }
 .stApp:has([data-testid="stSidebar"][aria-expanded="false"]) .st-key-topbar { padding-left:76px; }
@@ -202,32 +210,40 @@ BASE_CSS = """
 }
 .status-dot { width:8px; height:8px; border-radius:50%; }
 
-.st-key-topbar [data-testid="stCheckbox"] { display:flex; align-items:center; justify-content:flex-end; }
+.st-key-topbar [data-testid="stCheckbox"] { display:flex; align-items:center; justify-content:flex-start; }
+.st-key-topbar [data-testid="stCheckbox"] > label { width:auto; }
 .st-key-topbar [data-testid="stCheckbox"] label {
   gap:6px; white-space:nowrap; font-size:12.5px; color:var(--muted);
 }
 .st-key-topbar [data-testid="stCheckbox"] label p { font-size:12.5px !important; color:var(--muted) !important; }
 
 /* Popover & Action Buttons */
-.st-key-topbar [data-testid="stPopover"] > button,
-.st-key-topbar [data-testid="stButton"] button,
-.st-key-topbar [data-testid="stDownloadButton"] button {
-  background:transparent; border:none; color:var(--muted); width:38px; min-height:38px;
-  padding:0; border-radius:8px; justify-content:center;
+.st-key-topbar [data-testid="stPopover"] > button {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+  width:44px; min-height:40px; padding:0; border-radius:10px; justify-content:center;
 }
-.st-key-topbar [data-testid="stPopover"] > button:hover,
+.st-key-topbar [data-testid="stPopover"] > button p,
+.st-key-topbar [data-testid="stPopover"] > button span { color:var(--text) !important; }
+.st-key-topbar [data-testid="stPopover"] > button:hover {
+  background:var(--accent-soft); border-color:var(--accent); color:var(--accent-ink);
+}
 .st-key-topbar [data-testid="stButton"] button:hover,
 .st-key-topbar [data-testid="stDownloadButton"] button:hover {
   background:var(--accent-soft); color:var(--accent-ink);
 }
 
 /* Popover Menu Internal Styling */
-[data-testid="stPopoverBody"] { padding: 12px !important; }
+[data-testid="stPopoverBody"],
+[data-testid="stPopoverBody"] > div,
+[data-testid="stPopoverBody"] [data-baseweb="popover"] {
+  background:var(--surface) !important; color:var(--text) !important;
+}
+[data-testid="stPopoverBody"] { padding: 12px !important; border:1px solid var(--border) !important; border-radius:12px !important; box-shadow:0 12px 32px var(--shadow) !important; }
 [data-testid="stPopoverBody"] [data-testid="stButton"] button,
 [data-testid="stPopoverBody"] [data-testid="stDownloadButton"] button {
   width: 100% !important; min-height: 36px !important; padding: 6px 12px !important;
   justify-content: flex-start !important; border: 1px solid var(--border) !important;
-  background: transparent !important; color: var(--text) !important; border-radius: 6px !important;
+  background: var(--surface) !important; color: var(--text) !important; border-radius: 8px !important;
   margin-bottom: 8px; font-size: 14px;
 }
 [data-testid="stPopoverBody"] [data-testid="stButton"] button:hover,
@@ -236,11 +252,33 @@ BASE_CSS = """
 }
 
 /* ================= Workspace ================= */
-.st-key-workspace { padding:28px 32px 160px; }
+.st-key-workspace {
+  padding:28px 32px 190px;
+  min-width:0 !important;
+}
+.st-key-workspace [data-testid="stColumn"] {
+  min-width:0 !important; width:auto !important; flex-shrink:1 !important;
+}
+.st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+  flex:1 1 0 !important; min-width:0 !important;
+}
+.st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+  flex:0 0 min(360px, 32%) !important; min-width:0 !important;
+}
+.st-key-workspace [data-testid="stHorizontalBlock"] {
+  min-width:0 !important; width:100% !important;
+}
+.st-key-workspace [data-testid="stVerticalBlock"] {
+  min-width:0 !important; max-width:100% !important;
+}
 .st-key-workspace [data-testid="stHorizontalBlock"] { align-items:stretch !important; }
 .st-key-workspace [data-testid="stColumn"] > [data-testid="stVerticalBlock"],
 .st-key-workspace [data-testid="column"] > [data-testid="stVerticalBlock"] { height:100%; }
-[class*="st-key-chat"] { max-width:960px; margin:0 auto; gap:1.1rem; }
+[class*="st-key-chat"] {
+  max-width:960px; min-width:0 !important; width:100% !important;
+  margin:0 auto; gap:1.1rem;
+}
+.st-key-chat > [data-testid="stVerticalBlock"] { min-width:0 !important; max-width:100% !important; }
 .st-key-chat_empty { min-height:calc(100vh - 270px); justify-content:center; }
 .st-key-chat_empty [data-testid="stHorizontalBlock"] { max-width:720px; margin:0 auto; }
 
@@ -281,7 +319,7 @@ BASE_CSS = """
 [class*="st-key-ai_"] {
   position:relative; margin-left:44px; background:var(--surface); border:1px solid var(--border);
   border-radius:4px 16px 16px 16px; padding:16px 20px; gap:.7rem; box-shadow:0 1px 2px var(--shadow);
-  max-width: 100%; overflow: hidden;
+  width:calc(100% - 44px); min-width:0 !important; max-width:calc(100% - 44px); overflow:visible;
 }
 [class*="st-key-ai_"]::before {
   content:""; position:absolute; left:-44px; top:2px; width:32px; height:32px; border-radius:50%;
@@ -290,8 +328,9 @@ BASE_CSS = """
 }
 [class*="st-key-ai_"] [data-testid="stMarkdownContainer"] p,
 [class*="st-key-ai_"] [data-testid="stMarkdownContainer"] li {
-  font-size:15px; line-height:1.75; color:var(--body); 
-  overflow-wrap:anywhere !important; word-break:break-word !important; white-space:pre-wrap !important;
+  font-size:15px; line-height:1.75; color:var(--body);
+  max-width:100% !important; overflow-wrap:anywhere !important;
+  word-break:break-word !important; white-space:pre-wrap !important;
 }
 .ai-foot { border-top:1px solid var(--border); padding-top:10px; color:var(--muted); font-size:12px; }
 .source-tag {
@@ -314,7 +353,9 @@ BASE_CSS = """
 
 /* ================= Retrieval context ================= */
 .st-key-context {
-  position:sticky; top:84px; background:var(--surface); border:1px solid var(--border);
+  position:sticky; top:76px; margin-top:10px;
+  min-width:0 !important; max-width:100% !important;
+  background:var(--surface); border:1px solid var(--border);
   border-radius:12px; overflow:hidden; gap:0; box-shadow:0 1px 2px var(--shadow);
 }
 .ctx-head {
@@ -328,23 +369,46 @@ BASE_CSS = """
   font-size:12px; font-weight:600; padding:2px 9px; border-radius:999px;
   background:var(--border); color:var(--body);
 }
-.st-key-context_scroll { padding:12px; }
+.st-key-context_scroll { padding:12px; min-width:0 !important; overflow-x:hidden !important; }
 
 /* Restyle the container to host the Popover Button */
 [class*="st-key-src_"] {
   padding:0 !important; border:none !important; background:transparent !important; margin-bottom:8px;
 }
 /* The Popover button itself becomes the list card */
-[class*="st-key-src_"] [data-testid="stPopover"] > button {
-  border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
-  color: var(--text); padding: 12px; justify-content: flex-start; text-align: left;
-  font-weight: 600; font-size: 13px; width: 100%; transition: background 0.15s;
+[class*="st-key-src_"] [data-testid="stPopover"] > button,
+[class*="st-key-src_"] [data-testid="stPopover"] > button > div,
+[class*="st-key-src_"] [data-testid="stPopover"] > button > div > div {
+  border: 1px solid var(--border) !important; border-radius: 10px !important;
+  background-color: var(--surface) !important; color: var(--text) !important;
+  padding: 12px !important; justify-content: flex-start; text-align: left;
+  font-weight: 600; font-size: 13px; width: 100% !important;
+  transition: background .15s, border-color .15s; min-width:0 !important;
+  box-shadow:none !important;
+}
+[class*="st-key-src_"] [data-testid="stPopover"] > button p,
+[class*="st-key-src_"] [data-testid="stPopover"] > button span,
+[class*="st-key-src_"] [data-testid="stPopover"] > button svg {
+  color:var(--text) !important; fill:var(--text) !important;
+}
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover,
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover > div,
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover > div > div {
+  background-color:var(--surface2) !important; border-color:var(--border-strong) !important;
 }
 [class*="st-key-src_"] [data-testid="stPopover"] > button:hover {
   background: var(--surface2);
 }
-[class*="st-key-src_cited_"] [data-testid="stPopover"] > button {
-  border-color: var(--accent); background: var(--cited-bg); color: var(--accent-ink);
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button,
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button > div,
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button > div > div {
+  border-color:var(--accent) !important; background-color:var(--cited-bg) !important;
+  color:var(--accent-ink) !important;
+}
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button p,
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button span,
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button svg {
+  color:var(--accent-ink) !important; fill:var(--accent-ink) !important;
 }
 
 .source-title { font-size:15px; font-weight:600; color:var(--text); line-height:1.4; overflow-wrap:break-word; word-break:normal; }
@@ -385,6 +449,7 @@ BASE_CSS = """
 [data-testid="stChatInput"] textarea {
   font-size:15px; line-height:1.5; color:var(--text) !important; min-height:28px; max-height:140px;
 }
+[data-testid="stBottomBlockContainer"] { min-width:0 !important; }
 [data-testid="stChatInput"] textarea::placeholder { color:var(--muted) !important; opacity:1; }
 [data-testid="stChatInput"] button { background:var(--accent); color:#fff; border-radius:10px; }
 [data-testid="stChatInput"] button:hover { background:var(--accent-dark); }
@@ -392,13 +457,22 @@ BASE_CSS = """
 
 /* ================= Responsive ================= */
 @media (max-width:1100px) {
-  .st-key-workspace { padding:20px 20px 150px; }
+  .st-key-workspace { padding:20px 20px 180px; }
+  .st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+    flex:0 0 300px !important;
+  }
   .st-key-context { position:static; }
   .st-key-topbar { padding:0 16px; }
   [data-testid="stBottomBlockContainer"] { padding:12px 20px 12px; }
 }
 @media (max-width:700px) {
-  .st-key-workspace { padding:14px 12px 150px; }
+  .st-key-workspace { padding:14px 12px 170px; }
+  .st-key-workspace > [data-testid="stHorizontalBlock"] { flex-direction:column !important; }
+  .st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child,
+  .st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+    flex:1 1 auto !important; width:100% !important;
+  }
+  .st-key-context { position:static; margin-top:12px; }
   .top-sub { display:none; }
   .st-key-topbar [data-testid="stCheckbox"] { display:none; }
   .msg-user .bubble { max-width:90%; }
