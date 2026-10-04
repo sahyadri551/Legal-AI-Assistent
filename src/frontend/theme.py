@@ -257,7 +257,17 @@ BASE_CSS = """
   min-width:0 !important;
 }
 .st-key-workspace [data-testid="stColumn"] {
+<<<<<<< HEAD
   min-width:0 !important; width:auto !important;
+=======
+  min-width:0 !important; width:auto !important; flex-shrink:1 !important;
+}
+.st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+  flex:1 1 0 !important; min-width:0 !important;
+}
+.st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+  flex:0 0 min(360px, 32%) !important; min-width:0 !important;
+>>>>>>> a773c99de4cf119f54fe043e209b551426dd7acf
 }
 .st-key-workspace [data-testid="stHorizontalBlock"] {
   min-width:0 !important; width:100% !important;
@@ -313,7 +323,11 @@ BASE_CSS = """
 [class*="st-key-ai_"] {
   position:relative; margin-left:44px; background:var(--surface); border:1px solid var(--border);
   border-radius:4px 16px 16px 16px; padding:16px 20px; gap:.7rem; box-shadow:0 1px 2px var(--shadow);
+<<<<<<< HEAD
   width:100%; min-width:0 !important; max-width:100%; overflow:visible;
+=======
+  width:calc(100% - 44px); min-width:0 !important; max-width:calc(100% - 44px); overflow:visible;
+>>>>>>> a773c99de4cf119f54fe043e209b551426dd7acf
 }
 [class*="st-key-ai_"]::before {
   content:""; position:absolute; left:-44px; top:2px; width:32px; height:32px; border-radius:50%;
@@ -370,17 +384,47 @@ BASE_CSS = """
   padding:0 !important; border:none !important; background:transparent !important; margin-bottom:8px;
 }
 /* The Popover button itself becomes the list card */
+<<<<<<< HEAD
 [class*="st-key-src_"] [data-testid="stPopover"] > button {
   border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
   color: var(--text); padding: 12px; justify-content: flex-start; text-align: left;
   font-weight: 600; font-size: 13px; width: 100%; transition: background 0.15s;
   color:var(--text) !important; min-width:0 !important;
+=======
+[class*="st-key-src_"] [data-testid="stPopover"] > button,
+[class*="st-key-src_"] [data-testid="stPopover"] > button > div,
+[class*="st-key-src_"] [data-testid="stPopover"] > button > div > div {
+  border: 1px solid var(--border) !important; border-radius: 10px !important;
+  background-color: var(--surface) !important; color: var(--text) !important;
+  padding: 12px !important; justify-content: flex-start; text-align: left;
+  font-weight: 600; font-size: 13px; width: 100% !important;
+  transition: background .15s, border-color .15s; min-width:0 !important;
+  box-shadow:none !important;
+}
+[class*="st-key-src_"] [data-testid="stPopover"] > button p,
+[class*="st-key-src_"] [data-testid="stPopover"] > button span,
+[class*="st-key-src_"] [data-testid="stPopover"] > button svg {
+  color:var(--text) !important; fill:var(--text) !important;
+}
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover,
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover > div,
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover > div > div {
+  background-color:var(--surface2) !important; border-color:var(--border-strong) !important;
+>>>>>>> a773c99de4cf119f54fe043e209b551426dd7acf
 }
 [class*="st-key-src_"] [data-testid="stPopover"] > button:hover {
   background: var(--surface2);
 }
-[class*="st-key-src_cited_"] [data-testid="stPopover"] > button {
-  border-color: var(--accent); background: var(--cited-bg); color: var(--accent-ink);
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button,
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button > div,
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button > div > div {
+  border-color:var(--accent) !important; background-color:var(--cited-bg) !important;
+  color:var(--accent-ink) !important;
+}
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button p,
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button span,
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button svg {
+  color:var(--accent-ink) !important; fill:var(--accent-ink) !important;
 }
 
 .source-title { font-size:15px; font-weight:600; color:var(--text); line-height:1.4; overflow-wrap:break-word; word-break:normal; }
@@ -430,12 +474,27 @@ BASE_CSS = """
 /* ================= Responsive ================= */
 @media (max-width:1100px) {
   .st-key-workspace { padding:20px 20px 180px; }
+<<<<<<< HEAD
+=======
+  .st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+    flex:0 0 300px !important;
+  }
+>>>>>>> a773c99de4cf119f54fe043e209b551426dd7acf
   .st-key-context { position:static; }
   .st-key-topbar { padding:0 16px; }
   [data-testid="stBottomBlockContainer"] { padding:12px 20px 12px; }
 }
 @media (max-width:700px) {
   .st-key-workspace { padding:14px 12px 170px; }
+<<<<<<< HEAD
+=======
+  .st-key-workspace > [data-testid="stHorizontalBlock"] { flex-direction:column !important; }
+  .st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child,
+  .st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+    flex:1 1 auto !important; width:100% !important;
+  }
+  .st-key-context { position:static; margin-top:12px; }
+>>>>>>> a773c99de4cf119f54fe043e209b551426dd7acf
   .top-sub { display:none; }
   .st-key-topbar [data-testid="stCheckbox"] { display:none; }
   .msg-user .bubble { max-width:90%; }
