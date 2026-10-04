@@ -136,3 +136,8 @@ def test_rate_limit_exhaustion_is_actionable(monkeypatch):
         assert "rate limit" in str(exc)
     else:
         raise AssertionError("expected GroqRateLimitError")
+
+def test_generate_with_context_uses_source_markers():
+    generator = GroqGenerator(client=FakeClient())
+    generated = generator.generate_with_context("Summarize", ["Page one text"])
+    assert generated.answer == "[SOURCE: c1] Section 439 concerns bail."
