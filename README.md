@@ -1,10 +1,10 @@
 # Indian Legal Research Assistant (Hybrid RAG)
 
-CPU-first research prototype for Indian legal research using hybrid BM25 + dense retrieval, Reciprocal Rank Fusion, FastAPI, Streamlit, and Ollama (qwen3:4b). Embeddings use BAAI/bge-small-en-v1.5 on CPU. There is no local LoRA/QLoRA training.
+CPU-first legal research application using hybrid BM25 + dense retrieval, Reciprocal Rank Fusion, FastAPI, Streamlit, and Groq GPT-OSS 120B. Embeddings use BAAI/bge-small-en-v1.5 on CPU. There is no local LoRA/QLoRA training.
 
 ## Application
 
-The application provides PDF ingestion, normalization, deterministic chunking, BM25 and dense retrieval with Reciprocal Rank Fusion, grounded Qwen3 generation through Ollama, FastAPI endpoints, and a Streamlit frontend for questions, answers, citations, and retrieved sources.
+The application provides PDF ingestion, normalization, deterministic chunking, BM25 and dense retrieval with Reciprocal Rank Fusion, grounded Groq generation, FastAPI endpoints, browser voice typing, temporary PDF document analysis, case-law search, citations, and retrieved-source inspection.
 
 No legal corpus, embeddings, or index artifacts are committed.
 
@@ -14,7 +14,7 @@ Install dependencies:
 
     pip install -e ".[dev]"
 
-Make sure Ollama is running and qwen3:4b is available.
+Set GROQ_API_KEY in .env. GROQ_MODEL defaults to openai/gpt-oss-120b.
 
 Start the backend:
 
@@ -58,7 +58,7 @@ Build the BM25 and FAISS indexes using the retrieval CLIs after the processed co
 | configs/ | Application and retrieval/generation/evaluation settings |
 | src/ingestion/ | Document matching, PDF extraction, normalization, and chunking |
 | src/retrieval/ | BM25, FAISS, and RRF |
-| src/generation/ | Ollama grounded generation |
+| src/generation/ | Groq grounded generation |
 | src/backend/ | FastAPI application and QA service |
 | src/frontend/ | Streamlit UI and backend client |
 | src/evaluation/ | Evaluation harness |
@@ -70,7 +70,10 @@ Build the BM25 and FAISS indexes using the retrieval CLIs after the processed co
 ## Constraints
 
 - Run embeddings and serving on CPU.
-- Generate with a running Ollama server; do not load chat-model weights in-process.
+- Generate through Groq; do not load chat-model weights in-process.
+- Browser voice typing uses the Web Speech API when supported; speech is transcribed into the existing chat input and is never auto-submitted.
+- Document Analysis accepts temporary PDFs and does not add them to the indexed legal corpus.
+- Case Law Search filters retrieval to judgment records.
 - Do not commit corpora, embeddings, or invented legal content.
 
 ## Research question
