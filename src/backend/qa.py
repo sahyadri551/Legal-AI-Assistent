@@ -38,11 +38,23 @@ class HybridQAService:
         self.top_k = top_k
         self.generator = generator or GroqGenerator()
 
-    def answer(self, query: str) -> QAResult:
+    def retrieve(self, query: str, top_k: int | None = None) -> list[RRFResult]:
         if not query.strip():
             raise ValueError("query must not be empty")
-        bm25_results = self.bm25.retrieve(query, self.retrieval_k)
-        dense_results = self.dense.retrieve(query, self.retrieval_k)
-        fused = reciprocal_rank_fusion(bm25_results, dense_results, self.rrf_k, self.top_k)
-        generation = self.generator.generate(query, fused)
-        return QAResult(generation=generation, retrieved=fused)
+        fused = reciprocal_rank_fusion(
+            self.bm25.retrieve(query, self.retrieval_k),
+            self.dense.retrieve(query, self.retrieval_k),
+            self.rrf_k,
+            top_k or self.top_k,
+        )
+        return fused
+
+    def answer_from_results(self, query: str, results: list[RRFResult]) -> QAResult:
+        if not query.strip():
+            raise ValueError("query must not be empty")
+        generation = self.generator.generate(query, results)
+        return QAResult(generation=generation, retrieved=results)
+
+    def answer(self, query: str) -> QAResult:
+        results = self.retrieve(query)
+        return self.answer_from_results(query, results)

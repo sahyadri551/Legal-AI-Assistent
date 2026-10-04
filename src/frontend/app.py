@@ -114,6 +114,11 @@ for key, default in (
     ("pending_query", None),
     ("include_citations", True),
     ("scroll_pending", False),
+    ("feature_mode", "qa"),
+    ("search_results", []),
+    ("search_query", ""),
+    ("document_file", None),
+    ("document_result", None),
 ):
     if key not in st.session_state:
         st.session_state[key] = default
@@ -139,13 +144,29 @@ def render_sidebar() -> None:
     with st.sidebar:
         st.markdown(
             f'<div class="brand">{icon("scale", 22)}<span class="brand-name">LexAssist AI</span></div>'
-            '<div class="side-label">Workspaces</div>'
-            f'<div class="nav-item active">{icon("comments")}<span>Legal Research QA</span></div>'
-            f'<div class="nav-item" title="Coming soon">{icon("file")}<span>Document Analysis</span></div>'
-            f'<div class="nav-item" title="Coming soon">{icon("search")}<span>Case Law Search</span></div>'
-            '<div class="side-label">Recent Sessions</div>',
+            '<div class="side-label">Workspaces</div>',
             unsafe_allow_html=True,
         )
+        nav_items = [
+            ("qa", ":material/chat_bubble_outline: Legal Research QA"),
+            ("document", ":material/description: Document Analysis"),
+            ("search", ":material/search: Case Law Search"),
+        ]
+        for mode, label in nav_items:
+            active = st.session_state.feature_mode == mode
+            if st.button(
+                label,
+                key=f"workspace_{mode}",
+                use_container_width=True,
+                type="primary" if active else "secondary",
+            ):
+                st.session_state.feature_mode = mode
+                st.session_state.error = None
+                st.session_state.search_results = []
+                st.session_state.search_query = ""
+                st.session_state.document_result = None
+                st.rerun()
+        st.markdown('<div class="side-label">Recent Sessions</div>', unsafe_allow_html=True)
 
         with st.container(key="newsession"):
             if st.button(":material/add: New session", key="new_session", use_container_width=True):
@@ -193,7 +214,6 @@ def render_topbar(backend_online: bool) -> None:
     dark = st.session_state.theme == "dark"
 
     with st.container(key="topbar"):
-        # The CSS overrides Streamlit's default flexbox spacing so it respects content widths
         title_col, status_col, cite_col, menu_col = st.columns(
             [3.2, 1.4, 2.0, 0.65], gap="small", vertical_alignment="center"
         )
@@ -291,7 +311,6 @@ def render_source(index: int, chunk: dict, cited: bool) -> None:
     sub = esc(" · ".join(str(p) for p in (kind, metadata.get("pdf_filename")) if p))
     label = esc(source_label(chunk_id))
     
-    # Detailed text is now exclusively locked within the pop-up modal
     caption_html = f'<div class="source-sub" style="margin-bottom: 12px;">{esc(caption)}</div>' if caption else ""
 
     with st.container(key=f"src_cited_{index}" if cited else f"src_{index}"):
@@ -330,6 +349,42 @@ def scroll_to_latest() -> None:
     )
 
 
+# ------------------------------------------------------------- feature views
+def render_search_results(results: list[dict]) -> None:
+    if not results:
+        st.info("No matching case-law sources were found.")
+        return
+    st.markdown("### Case Law Search")
+    st.caption(f"{len(results)} ranked case-law sources")
+    for index, result in enumerate(results, start=1):
+        metadata = result.get("metadata") or {}
+        title = source_label(str(result.get("chunk_id", "Unknown source")))
+        filename = str(metadata.get("pdf_filename") or "")
+        score = float(result.get("score", 0.0))
+        with st.container(border=True):
+            st.markdown(f"**{index}. {esc(title)}**")
+            st.caption(f"{esc(filename) if filename else 'Judgment'} · RRF {score:.4f}")
+            st.write(str(result.get("text") or ""))
+
+
+def render_document_workspace() -> None:
+    st.markdown("### Document Analysis")
+    st.caption("Upload a PDF, then ask questions grounded only in that document.")
+    uploaded = st.file_uploader(
+        "Upload a PDF document",
+        type=["pdf"],
+        key="document_upload",
+        help="Maximum 15 MB. Text-based PDFs are supported.",
+    )
+    if uploaded is not None:
+        st.session_state.document_file = (uploaded.name, uploaded.getvalue())
+    if st.session_state.document_file:
+        name, content = st.session_state.document_file
+        st.success(f"Ready: {name} · {len(content) / 1024:.0f} KB")
+        if st.session_state.document_result:
+            render_ai_message(0, st.session_state.document_result)
+
+
 # ------------------------------------------------------------------- page
 client = LegalQAClient(os.getenv("BACKEND_URL", "http://127.0.0.1:8000"))
 try:
@@ -337,8 +392,72 @@ try:
 except BackendError:
     backend_online = False
 
-prompt = st.chat_input("Ask a legal question or request document analysis...", max_chars=2000)
+placeholders = {
+    "qa": "Ask a legal question...",
+    "document": "Ask a question about the uploaded PDF...",
+    "search": "Search case law and legal sources...",
+}
+prompt = st.chat_input(placeholders[st.session_state.feature_mode], max_chars=2000)
 prompt = prompt or st.session_state.pop("pending_query", None)
+
+components.html(
+    """<script>
+    (() => {
+      const parent = window.parent;
+      const doc = parent.document;
+      const install = () => {
+        const root = doc.querySelector('[data-testid="stChatInput"]');
+        const submit = root && root.querySelector('button');
+        if (!root || !submit || root.querySelector('#lexassist-voice')) return;
+        const SpeechRecognition = parent.SpeechRecognition || parent.webkitSpeechRecognition;
+        if (!SpeechRecognition) return;
+        const button = doc.createElement('button');
+        button.id = 'lexassist-voice';
+        button.type = 'button';
+        button.setAttribute('aria-label', 'Voice input');
+        button.title = 'Voice input';
+        button.innerHTML = '<span>●</span>';
+        submit.parentElement.insertBefore(button, submit);
+        let listening = false;
+        const recognition = new SpeechRecognition();
+        recognition.lang = navigator.language || 'en-IN';
+        recognition.interimResults = true;
+        recognition.continuous = false;
+        button.onclick = () => {
+          if (listening) { recognition.stop(); return; }
+          try { recognition.start(); } catch (_) {}
+        };
+        recognition.onstart = () => {
+          listening = true;
+          button.classList.add('is-listening');
+        };
+        recognition.onend = () => {
+          listening = false;
+          button.classList.remove('is-listening');
+        };
+        recognition.onerror = () => {
+          listening = false;
+          button.classList.remove('is-listening');
+        };
+        recognition.onresult = (event) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          const textarea = root.querySelector('textarea');
+          if (!textarea) return;
+          textarea.value = transcript.trim();
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+      };
+      const observer = new MutationObserver(install);
+      observer.observe(doc.body, {childList:true, subtree:true});
+      install();
+      setTimeout(() => observer.disconnect(), 10000);
+    })();
+    </script>""",
+    height=0,
+)
 
 render_sidebar()
 render_topbar(backend_online)
@@ -349,65 +468,105 @@ latest = turns[-1] if turns else None
 has_sources = bool(latest and latest.get("retrieved_chunks"))
 
 with st.container(key="workspace"):
-    if has_sources:
-        chat_area, context_area = st.columns([1, 0.34], gap="medium")
+    mode = st.session_state.feature_mode
+
+    if mode == "document":
+        render_document_workspace()
+    elif mode == "search" and st.session_state.search_results:
+        st.caption(f'Search: "{esc(st.session_state.search_query)}"')
+        render_search_results(st.session_state.search_results)
     else:
-        chat_area, context_area = st.container(), None
+        session = store.get(active_id) or {"turns": []}
+        turns: list[dict] = session["turns"]
+        latest = turns[-1] if turns else None
+        has_sources = bool(latest and latest.get("retrieved_chunks"))
 
-    with chat_area, st.container(key="chat_empty" if not turns and not prompt else "chat"):
-        if not turns and not prompt:
-            render_empty_state()
+        if has_sources:
+            chat_area, context_area = st.columns([1, 0.34], gap="medium")
+        else:
+            chat_area, context_area = st.container(), None
 
-        for index, turn in enumerate(turns):
-            render_user_message(turn["query"])
-            render_ai_message(index, turn)
+        with chat_area, st.container(key="chat_empty" if not turns and not prompt else "chat"):
+            if not turns and not prompt:
+                render_empty_state()
+            for index, turn in enumerate(turns):
+                render_user_message(turn["query"])
+                render_ai_message(index, turn)
 
-        if prompt:
-            query = prompt.strip()
-            st.session_state.error = None
-            render_user_message(query)
+            if prompt and mode == "qa":
+                query = prompt.strip()
+                st.session_state.error = None
+                render_user_message(query)
+                if not backend_online:
+                    st.error("The FastAPI backend is offline.")
+                else:
+                    pending = st.empty()
+                    with pending.container(key="ai_pending"):
+                        st.markdown(
+                            '<div class="typing"><span class="dots"><span></span><span></span><span></span></span>'
+                            "Analyzing context...</div>",
+                            unsafe_allow_html=True,
+                        )
+                    try:
+                        result = client.ask(query)
+                    except (BackendError, ValueError) as exc:
+                        st.session_state.error = str(exc)
+                        st.rerun()
+                    store.add_turn(
+                        active_id,
+                        {
+                            "query": query,
+                            "answer": result.answer,
+                            "citations": list(result.citations),
+                            "retrieved_chunks": list(result.retrieved_chunks),
+                            "model": result.model,
+                        },
+                    )
+                    st.session_state.scroll_pending = True
+                    st.rerun()
 
-            if not backend_online:
-                st.session_state.error = (
-                    "The FastAPI backend is offline. Start it with "
-                    "`uvicorn backend.app:app --port 8000`, then ask again."
-                )
-                st.rerun()
+            if st.session_state.error:
+                st.error(st.session_state.error)
+            if store.save_error:
+                st.warning(f"Sessions are not being saved: {store.save_error}")
 
-            pending = st.empty()
-            with pending.container(key="ai_pending"):
-                st.markdown(
-                    '<div class="typing"><span class="dots"><span></span><span></span><span></span></span>'
-                    "Analyzing context...</div>",
-                    unsafe_allow_html=True,
-                )
+        if context_area is not None and latest is not None:
+            with context_area:
+                render_context(latest)
+
+    if mode == "search" and prompt:
+        if not backend_online:
+            st.error("The FastAPI backend is offline.")
+        else:
             try:
-                result = client.ask(query)
+                st.session_state.search_results = client.search(prompt)
+                st.session_state.search_query = prompt.strip()
+                st.rerun()
             except (BackendError, ValueError) as exc:
                 st.session_state.error = str(exc)
                 st.rerun()
 
-            store.add_turn(
-                active_id,
-                {
-                    "query": query,
+    if mode == "document" and prompt:
+        document = st.session_state.document_file
+        if not document:
+            st.error("Upload a PDF before asking a document-analysis question.")
+        elif not backend_online:
+            st.error("The FastAPI backend is offline.")
+        else:
+            name, content = document
+            try:
+                result = client.analyze_document(content, name, prompt)
+                st.session_state.document_result = {
+                    "query": prompt.strip(),
                     "answer": result.answer,
                     "citations": list(result.citations),
                     "retrieved_chunks": list(result.retrieved_chunks),
                     "model": result.model,
-                },
-            )
-            st.session_state.scroll_pending = True
-            st.rerun()
-
-        if st.session_state.error:
-            st.error(st.session_state.error)
-        if store.save_error:
-            st.warning(f"Sessions are not being saved: {store.save_error}")
-
-    if context_area is not None and latest is not None:
-        with context_area:
-            render_context(latest)
+                }
+                st.rerun()
+            except (BackendError, ValueError) as exc:
+                st.session_state.error = str(exc)
+                st.rerun()
 
 if st.session_state.scroll_pending:
     st.session_state.scroll_pending = False

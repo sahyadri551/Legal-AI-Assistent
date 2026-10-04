@@ -32,6 +32,77 @@ class LegalQAClient:
         except httpx.HTTPError as exc:
             raise BackendError(f"Backend health check failed: {exc}") from exc
 
+    def search(self, query: str, top_k: int = 20) -> list[dict[str, Any]]:
+        if not query.strip():
+            raise ValueError("Please enter a case-law search query.")
+        try:
+            response = httpx.post(
+                f"{self.base_url}/search",
+                json={"query": query.strip()},
+                timeout=self.timeout,
+            )
+        except httpx.TimeoutException as exc:
+            raise BackendError("The case-law search timed out.") from exc
+        except httpx.HTTPError as exc:
+            raise BackendError(f"Could not reach the backend: {exc}") from exc
+        if response.is_error:
+            try:
+                detail = response.json().get("detail", response.text)
+            except ValueError:
+                detail = response.text
+            raise BackendError(f"Backend returned HTTP {response.status_code}: {detail}")
+        return response.json().get("results", [])[:top_k]
+
+    def analyze_document(self, content: bytes, filename: str, query: str) -> QAAnswer:
+        if not content:
+            raise ValueError("Please upload a non-empty PDF.")
+        if not query.strip():
+            raise ValueError("Please enter a question about the document.")
+        try:
+            response = httpx.post(
+                f"{self.base_url}/document-analysis",
+                files={"file": (filename, content, "application/pdf")},
+                data={"query": query.strip()},
+                timeout=self.timeout,
+            )
+        except httpx.TimeoutException as exc:
+            raise BackendError("Document analysis timed out.") from exc
+        except httpx.HTTPError as exc:
+            raise BackendError(f"Could not reach the backend: {exc}") from exc
+        if response.is_error:
+            try:
+                detail = response.json().get("detail", response.text)
+            except ValueError:
+                detail = response.text
+            raise BackendError(f"Backend returned HTTP {response.status_code}: {detail}")
+        body = response.json()
+        return QAAnswer(
+            answer=body["answer"],
+            model=body["model"],
+            citations=body.get("citations", []),
+            retrieved_chunks=body.get("retrieved_chunks", []),
+        )
+
+    def search(self, query: str, top_k: int = 20) -> list[dict[str, Any]]:
+        if not query.strip(): raise ValueError("Please enter a case-law search query.")
+        response = httpx.post(f"{self.base_url}/search", json={"query": query.strip()}, timeout=self.timeout)
+        if response.is_error:
+            try: detail=response.json().get("detail", response.text)
+            except ValueError: detail=response.text
+            raise BackendError(f"Backend returned HTTP {response.status_code}: {detail}")
+        return response.json().get("results", [])[:top_k]
+
+    def analyze_document(self, content: bytes, filename: str, query: str) -> QAAnswer:
+        if not content: raise ValueError("Please upload a non-empty PDF.")
+        if not query.strip(): raise ValueError("Please enter a question about the document.")
+        response = httpx.post(f"{self.base_url}/document-analysis", files={"file": (filename, content, "application/pdf")}, data={"query": query.strip()}, timeout=self.timeout)
+        if response.is_error:
+            try: detail=response.json().get("detail", response.text)
+            except ValueError: detail=response.text
+            raise BackendError(f"Backend returned HTTP {response.status_code}: {detail}")
+        body=response.json()
+        return QAAnswer(body["answer"], body["model"], body.get("citations", []), body.get("retrieved_chunks", []))
+
     def ask(self, query: str) -> QAAnswer:
         if not query.strip():
             raise ValueError("Please enter a legal question.")

@@ -74,3 +74,12 @@ def test_invalid_chunk_config(tmp_path: Path, max_chars: int, overlap_chars: int
 
     with pytest.raises(ValueError):
         chunk_documents(source, output, max_chars, overlap_chars)
+
+
+def test_public_chunk_text_matches_private_helper():
+    text = "one two three four five six"
+    assert chunk_text(text, max_chars=10, overlap_chars=2) == _chunk_text(text, 10, 2)
+
+
+# Backward-compatible alias for existing integrations.
+_chunk_text = chunk_text
