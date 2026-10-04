@@ -3,6 +3,7 @@ import httpx
 from fastapi.testclient import TestClient
 from retrieval.rrf import RRFResult
 from backend.app import create_app
+from generation.ollama import OllamaOutOfMemoryError
 
 class FakeService:
     def answer(self, query):
@@ -44,7 +45,7 @@ def test_qa_maps_generation_timeout():
 
 class OOMService:
     def answer(self, query):
-        raise RuntimeError(
+        raise OllamaOutOfMemoryError(
             "Ollama ran out of CPU memory while starting the model context."
         )
 

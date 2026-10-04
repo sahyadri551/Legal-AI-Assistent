@@ -5,6 +5,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from backend.qa import HybridQAService
+from generation.ollama import OllamaOutOfMemoryError
 
 class QARequest(BaseModel):
     query: str = Field(min_length=1)
@@ -39,10 +40,10 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
             raise HTTPException(status_code=504, detail="Ollama generation timed out. Check that Ollama is running and the model is available.") from exc
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=502, detail=f"Ollama request failed: {exc}") from exc
+        except OllamaOutOfMemoryError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         except RuntimeError as exc:
-            detail = str(exc)
-            status_code = 503 if "ran out of CPU memory" in detail.lower() else 502
-            raise HTTPException(status_code=status_code, detail=detail) from exc
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
         return QAResponse(
             answer=result.generation.answer,

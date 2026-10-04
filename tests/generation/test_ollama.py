@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from ollama import ResponseError
 
 from retrieval.rrf import RRFResult
-from generation.ollama import OllamaGenerator
+from generation.ollama import OllamaGenerator, OllamaOutOfMemoryError
 
 
 def result():
@@ -93,7 +93,7 @@ class OOMClient:
 def test_oom_response_becomes_actionable_runtime_error():
     try:
         OllamaGenerator(client=OOMClient()).generate("What is bail?", [result()])
-    except RuntimeError as exc:
+    except OllamaOutOfMemoryError as exc:
         assert "ran out of CPU memory" in str(exc)
         assert "2048-token context" in str(exc)
     else:

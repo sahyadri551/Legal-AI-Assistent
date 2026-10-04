@@ -14,6 +14,10 @@ class ChatClient(Protocol):
     def chat(self, **kwargs: Any) -> Any: ...
 
 
+class OllamaOutOfMemoryError(RuntimeError):
+    """Ollama could not allocate the model/context in available memory."""
+
+
 @dataclass(frozen=True)
 class GenerationResult:
     answer: str
@@ -172,7 +176,7 @@ class OllamaGenerator:
             message = str(exc)
             lowered = message.lower()
             if "out-of-memory" in lowered or "failed to allocate" in lowered:
-                raise RuntimeError(
+                raise OllamaOutOfMemoryError(
                     "Ollama ran out of CPU memory while starting the model context. "
                     "The application requests a 2048-token context; close other "
                     "memory-heavy applications or use a smaller Ollama model if "
