@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "fluid": true,
+  "functions": {
+    "src/index.py": {
+      "maxDuration": 300,
+      "includeFiles": ["data/indexes/**"],
+      "excludeFiles": [
+        "tests/**",
+        "docs/**",
+        "experiments/**",
+        "scripts/**",
+        "src/frontend/**",
+        "src/generation/ollama.py",
+        "data/processed/**",
+        "data/raw/**",
+        ".streamlit/**"
+      ]
+    }
+  }
+}

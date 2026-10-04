@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from io import BytesIO
+import os
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pypdf import PdfReader
 
 from ingestion.chunking import chunk_text
@@ -35,6 +37,26 @@ class SearchResponse(BaseModel):
 
 def create_app(service: HybridQAService | None = None) -> FastAPI:
     app = FastAPI(title="Indian Legal Research Assistant", version="0.1.0")
+
+    configured_origins = [
+        origin.strip()
+        for origin in os.getenv("FRONTEND_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
+    if not configured_origins:
+        configured_origins = [
+            "http://localhost:8501",
+            "http://127.0.0.1:8501",
+        ]
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=configured_origins,
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.state.service = service
 
     @app.get("/health")
@@ -73,8 +95,18 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
         data = await file.read()
         if not data:
             raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
-        if len(data) > 15 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="PDF is too large. Maximum size is 15 MB.")
+        try:
+            max_upload_mb = float(os.getenv("DOCUMENT_MAX_MB", "15"))
+        except ValueError as exc:
+            raise HTTPException(status_code=500, detail="DOCUMENT_MAX_MB must be numeric.") from exc
+        if max_upload_mb <= 0:
+            raise HTTPException(status_code=500, detail="DOCUMENT_MAX_MB must be greater than zero.")
+        max_upload_bytes = int(max_upload_mb * 1024 * 1024)
+        if len(data) > max_upload_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"PDF is too large. Maximum size is {max_upload_mb:g} MB.",
+            )
         try:
             reader = PdfReader(BytesIO(data))
             pages = [(page.extract_text() or "").strip() for page in reader.pages]

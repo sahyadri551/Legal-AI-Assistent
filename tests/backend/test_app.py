@@ -26,6 +26,19 @@ def test_health():
     assert response.json() == {"status": "ok"}
 
 
+def test_health_allows_local_frontend_origin():
+    client = TestClient(create_app(FakeService()))
+    response = client.options(
+        "/health",
+        headers={
+            "Origin": "http://localhost:8501",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:8501"
+
+
 def test_qa_endpoint():
     client = TestClient(create_app(FakeService()))
     response = client.post("/qa", json={"query": "What is bail?"})

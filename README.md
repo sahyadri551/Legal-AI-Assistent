@@ -76,3 +76,47 @@ Build the BM25 and FAISS indexes using the retrieval CLIs after the processed co
 ## Research question
 
 Whether hybrid BM25 + dense retrieval with RRF improves retrieval and answer quality versus BM25-only and dense-only baselines for Indian legal question answering, with generation held fixed.
+
+## Vercel deployment
+
+The FastAPI backend is prepared for Vercel. The existing Streamlit frontend remains a separate application and can continue to run locally or on a Streamlit-compatible host.
+
+### Configure Vercel
+
+Set these environment variables in the Vercel project:
+
+    GROQ_API_KEY=<your Groq API key>
+    GROQ_BASE_URL=https://api.groq.com/openai/v1
+    GROQ_MODEL=openai/gpt-oss-120b
+    DOCUMENT_MAX_MB=4
+    FRONTEND_ORIGINS=<your Streamlit frontend HTTPS origin>
+
+Vercel's function request-body limit is 4.5 MB, so document uploads should be kept below that limit. The backend defaults to 15 MB for local development; set `DOCUMENT_MAX_MB=4` in Vercel.
+
+The committed BM25 and FAISS artifacts are included in the Vercel function.
+
+Install the Vercel CLI:
+
+    npm install -g vercel
+
+Run a local Vercel-style check:
+
+    vercel dev
+
+Create a preview deployment:
+
+    vercel
+
+Deploy production:
+
+    vercel --prod
+
+If the Python function exceeds the standard bundle limit because of the frozen ML dependencies, enable Vercel Large Functions with:
+
+    VERCEL_SUPPORT_LARGE_FUNCTIONS=1
+
+For bundle diagnostics, temporarily add:
+
+    VERCEL_ANALYZE_BUILD_OUTPUT=1
+
+Keep the Groq API key only in Vercel Environment Variables; never commit it.
