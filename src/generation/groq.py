@@ -232,8 +232,7 @@ class GroqGenerator:
         generated = self._generate_prompt(prompt)
         return generated
 
-    def generate(self, query: str, results: list[RRFResult]) -> GenerationResult:
-        prompt = self.build_prompt(query, results)
+    def _generate_prompt(self, prompt: str) -> GenerationResult:
         messages = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": prompt},
@@ -271,10 +270,14 @@ class GroqGenerator:
             raise RuntimeError("Groq returned an empty answer")
 
         answer = self._extract_answer(str(content).strip())
+        return GenerationResult(answer, self.model, [])
+
+    def generate(self, query: str, results: list[RRFResult]) -> GenerationResult:
+        prompt = self.build_prompt(query, results)
+        generated = self._generate_prompt(prompt)
         citations = [
             result.chunk_id
             for result in results[: self.max_chunks]
-            if result.chunk_id in answer
+            if result.chunk_id in generated.answer
         ]
-
-        return GenerationResult(answer, self.model, citations)
+        return GenerationResult(generated.answer, generated.model, citations)
