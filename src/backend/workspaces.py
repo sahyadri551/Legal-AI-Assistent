@@ -65,15 +65,15 @@ class WorkspaceService:
         prompt = (
             f"{instruction.strip()}\n\n"
             "This is a temporary uploaded legal document. Use only the supplied pages. "
-            "Cite every material claim with the page source marker, for example "
-            "[SOURCE: Page 3]. If the document does not support a claim, say so."
+            "Cite every material claim with its source marker, for example "
+            "[SOURCE: 3] for page 3. If the document does not support a claim, say so."
         )
         generated = self.generator.generate_with_context(prompt, blocks, source_prefix="SOURCE")
         cited = _SOURCE_RE.findall(generated.answer)
         sources = []
         by_page = {i + 1: text for i, text in enumerate([b.split("\n", 1)[-1] for b in blocks])}
         for source in cited:
-            match = re.fullmatch(r"Page\s+(\d+)", source.strip(), re.IGNORECASE)
+            match = re.fullmatch(r"(\d+)", source.strip())
             if match:
                 page = int(match.group(1))
                 if page in by_page:
