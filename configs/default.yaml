@@ -1,5 +1,5 @@
 # Application, hardware, and path defaults.
-# Generation uses a local Ollama server; no in-process LLM weights.
+# Generation is delegated to Groq; retrieval and embeddings remain CPU-first.
 
 project:
   name: indian-legal-research-assistant
@@ -28,3 +28,7 @@ api:
 
 frontend:
   port: 8501
+
+generation:
+  provider: groq
+  model: openai/gpt-oss-120b
