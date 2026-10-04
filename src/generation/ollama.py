@@ -14,7 +14,7 @@ class GenerationResult:
     citations: list[str]
 
 class OllamaGenerator:
-    def __init__(self, model="qwen3:4b", base_url="http://127.0.0.1:11434", timeout_seconds=120, temperature=0.2, top_p=0.9, num_predict=512, max_chunks=8, max_context_chars=6000, system_prompt=("You are a research assistant for Indian legal questions. Answer only from the provided retrieved excerpts. Cite the source identifiers given with those excerpts. If the excerpts are insufficient, say so. Do not invent law, citations, or case holdings."), client=None):
+    def __init__(self, model="qwen3:4b", base_url="http://127.0.0.1:11434", timeout_seconds=120, temperature=0.2, top_p=0.9, num_predict=512, max_chunks=8, max_context_chars=6000, system_prompt=("You are a research assistant for Indian legal questions. Answer only from the provided retrieved excerpts. Cite the source identifiers given with those excerpts. If the excerpts are insufficient, say so. Do not invent law, citations, or case holdings. Return only the final answer. Do not describe your reasoning, analysis process, or the steps you used to reach the answer."), client=None):
         if not model.strip(): raise ValueError("model must not be empty")
         if max_chunks <= 0 or max_context_chars <= 0: raise ValueError("context limits must be greater than zero")
         if client is None:
@@ -34,7 +34,7 @@ class OllamaGenerator:
             excerpts.append(block); used += len(block)
             if used >= self.max_context_chars: break
         context="\n\n".join(excerpts) if excerpts else "[NO RETRIEVED EXCERPTS]"
-        return f"Question:\n{query.strip()}\n\nRetrieved excerpts:\n{context}\n\nAnswer using only these excerpts. Cite each material claim with its [SOURCE: ...] identifier. If the excerpts do not support an answer, state that the retrieved excerpts are insufficient."
+        return f"Question:\n{query.strip()}\n\nRetrieved excerpts:\n{context}\n\nReturn only the final answer to the question. Do not include analysis, reasoning, planning, or commentary about the answer. Use only these excerpts. Cite each material claim with its [SOURCE: ...] identifier. If the excerpts do not support an answer, state that the retrieved excerpts are insufficient."
 
     def generate(self, query: str, results: list[RRFResult]) -> GenerationResult:
         response=self.client.chat(model=self.model, messages=[{"role":"system","content":self.system_prompt},{"role":"user","content":self.build_prompt(query, results)}], think=False, options={"temperature":self.temperature,"top_p":self.top_p,"num_predict":self.num_predict})

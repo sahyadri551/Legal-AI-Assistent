@@ -9,9 +9,16 @@ class FakeClient:
         self.kwargs=kwargs
         return SimpleNamespace(message=SimpleNamespace(content="[SOURCE: c1] Section 439 concerns bail."))
 
-def test_prompt_contains_source_and_query():
+def test_prompt_contains_source_query_and_output_rules():
     p=OllamaGenerator(client=FakeClient()).build_prompt("What is bail?",[result()])
     assert "[SOURCE: c1]" in p and "What is bail?" in p
+    assert "Return only the final answer" in p
+    assert "Do not include analysis" in p
+
+def test_system_prompt_rejects_reasoning_narration():
+    p=OllamaGenerator(client=FakeClient()).system_prompt
+    assert "Return only the final answer" in p
+    assert "Do not describe your reasoning" in p
 
 def test_generate_returns_citation():
     c=FakeClient()
