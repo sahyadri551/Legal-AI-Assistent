@@ -2,26 +2,54 @@
 
 CPU-first research prototype for Indian legal research using hybrid BM25 + dense retrieval, Reciprocal Rank Fusion, FastAPI, Streamlit, and Ollama (qwen3:4b). Embeddings use BAAI/bge-small-en-v1.5 on CPU. There is no local LoRA/QLoRA training.
 
-## Current implementation
+## Application
 
-The ingestion stage now:
-1. matches judgment PDFs to metadata by integer pair ID;
-2. validates missing/duplicate/unreadable inputs;
-3. extracts PDF text with pypdf;
-4. writes normalized records to data/processed/documents.jsonl;
-5. chunks normalized text into data/processed/chunks.jsonl.
+The application provides PDF ingestion, normalization, deterministic chunking, BM25 and dense retrieval with Reciprocal Rank Fusion, grounded Qwen3 generation through Ollama, FastAPI endpoints, and a Streamlit frontend for questions, answers, citations, and retrieved sources.
 
 No legal corpus, embeddings, or index artifacts are committed.
 
-## Commands
+## Run
+
+Install dependencies:
+
+    pip install -e ".[dev]"
+
+Make sure Ollama is running and qwen3:4b is available.
+
+Start the backend:
+
+    $env:PYTHONPATH="$PWD\src"
+    uvicorn backend.app:app --host 127.0.0.1 --port 8000
+
+In a second PowerShell window, start the frontend:
+
+    $env:PYTHONPATH="$PWD\src"
+    streamlit run src/frontend/app.py --server.port 8501
+
+Open the Streamlit URL shown by the command, normally http://localhost:8501.
+
+The frontend calls the FastAPI backend at http://127.0.0.1:8000 by default. Set BACKEND_URL to use another backend URL.
+
+## API
+
+Health: GET /health
+
+Legal QA: POST /qa with {"query": "What are the powers of the High Court regarding bail?"}
+
+The response includes the generated answer, model name, citation IDs, and retrieved chunks used for generation.
+
+## Data pipeline
 
 From the repository root:
 
     python -m ingestion --project-root .
-
     python -m ingestion.chunking_cli --project-root .
 
-The first command builds documents.jsonl. The second builds chunks.jsonl using the defaults in configs/retrieval.yaml (1200 characters with 150-character overlap).
+Build the BM25 and FAISS indexes using the retrieval CLIs after the processed corpus exists.
+
+## Test
+
+    pytest -q
 
 ## Layout
 
@@ -29,11 +57,11 @@ The first command builds documents.jsonl. The second builds chunks.jsonl using t
 |------|------|
 | configs/ | Application and retrieval/generation/evaluation settings |
 | src/ingestion/ | Document matching, PDF extraction, normalization, and chunking |
-| src/retrieval/ | BM25, FAISS, and RRF (later milestone) |
-| src/generation/ | Ollama client (later milestone) |
-| src/backend/ | FastAPI (later milestone) |
-| src/frontend/ | Streamlit (later milestone) |
-| src/evaluation/ | Evaluation harness (later milestone) |
+| src/retrieval/ | BM25, FAISS, and RRF |
+| src/generation/ | Ollama grounded generation |
+| src/backend/ | FastAPI application and QA service |
+| src/frontend/ | Streamlit UI and backend client |
+| src/evaluation/ | Evaluation harness |
 | data/raw/ | User-supplied source documents |
 | data/processed/ | Generated documents and chunks |
 | data/indexes/ | Generated BM25 and FAISS artifacts |

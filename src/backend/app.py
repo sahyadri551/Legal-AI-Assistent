@@ -1,6 +1,7 @@
 """FastAPI application for end-to-end legal QA."""
 from __future__ import annotations
 from dataclasses import asdict
+import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from backend.qa import HybridQAService
@@ -34,6 +35,13 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except FileNotFoundError as exc:
             raise HTTPException(status_code=503, detail=f"Retrieval indexes are unavailable: {exc}") from exc
+        except httpx.TimeoutException as exc:
+            raise HTTPException(status_code=504, detail="Ollama generation timed out. Check that Ollama is running and the model is available.") from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail=f"Ollama request failed: {exc}") from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
         return QAResponse(
             answer=result.generation.answer,
             model=result.generation.model,

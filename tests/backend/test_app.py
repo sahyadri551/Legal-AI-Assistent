@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import httpx
 from fastapi.testclient import TestClient
 from retrieval.rrf import RRFResult
 from backend.app import create_app
@@ -29,3 +30,13 @@ def test_qa_rejects_empty_query():
     client = TestClient(create_app(FakeService()))
     response = client.post("/qa", json={"query": ""})
     assert response.status_code == 422
+
+class TimeoutService:
+    def answer(self, query):
+        raise httpx.ReadTimeout("generation timed out")
+
+def test_qa_maps_generation_timeout():
+    client = TestClient(create_app(TimeoutService()))
+    response = client.post("/qa", json={"query": "What is bail?"})
+    assert response.status_code == 504
+    assert "timed out" in response.json()["detail"]
