@@ -9,19 +9,17 @@ def result():
 
 
 class FakeClient:
-    def __init__(self):
+    def __init__(self, content='{"answer":"[SOURCE: c1] Section 439 concerns bail."}'):
         self.kwargs = None
+        self.content = content
 
     def chat(self, **kwargs):
         self.kwargs = kwargs
+        midpoint = max(1, len(self.content) // 2)
         return iter(
             [
-                SimpleNamespace(
-                    message=SimpleNamespace(content="[SOURCE: c1] Section 439 ")
-                ),
-                SimpleNamespace(
-                    message=SimpleNamespace(content="concerns bail.")
-                ),
+                SimpleNamespace(message=SimpleNamespace(content=self.content[:midpoint])),
+                SimpleNamespace(message=SimpleNamespace(content=self.content[midpoint:])),
             ]
         )
 
@@ -32,17 +30,17 @@ def test_prompt_contains_source_query_and_output_rules():
     )
     assert "[SOURCE: c1]" in prompt
     assert "What is bail?" in prompt
-    assert "Return only the final answer" in prompt
-    assert "Do not include analysis" in prompt
+    assert '"answer"' in prompt
+    assert "Do not put analysis" in prompt
 
 
 def test_system_prompt_rejects_reasoning_narration():
     prompt = OllamaGenerator(client=FakeClient()).system_prompt
-    assert "Return only the final answer" in prompt
-    assert "Do not describe your reasoning" in prompt
+    assert "required JSON object" in prompt
+    assert "never reasoning" in prompt
 
 
-def test_generate_streams_and_returns_citation():
+def test_generate_extracts_only_structured_answer():
     client = FakeClient()
     generated = OllamaGenerator(client=client).generate("What is bail?", [result()])
 
@@ -52,17 +50,24 @@ def test_generate_streams_and_returns_citation():
     assert client.kwargs["stream"] is True
     assert client.kwargs["think"] is False
     assert client.kwargs["keep_alive"] == "10m"
-    assert client.kwargs["options"]["temperature"] == 0.2
+    assert client.kwargs["format"] == OllamaGenerator.RESPONSE_SCHEMA
+
+
+def test_malformed_structured_output_fails():
+    client = FakeClient("Hmm, the user is asking about bail.")
+    try:
+        OllamaGenerator(client=client).generate("What is bail?", [result()])
+    except RuntimeError as exc:
+        assert "malformed structured output" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
 
 
 def test_empty_answer_fails():
-    class Empty:
-        def chat(self, **kwargs):
-            return iter([SimpleNamespace(message=SimpleNamespace(content=""))])
-
+    client = FakeClient('{"answer":""}')
     try:
-        OllamaGenerator(client=Empty()).generate("Question", [result()])
+        OllamaGenerator(client=client).generate("Question", [result()])
     except RuntimeError as exc:
-        assert "empty answer" in str(exc)
+        assert "contains no answer" in str(exc)
     else:
         raise AssertionError("expected RuntimeError")

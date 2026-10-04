@@ -1,6 +1,7 @@
 """Grounded answer generation using a local Ollama model."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -19,6 +20,17 @@ class GenerationResult:
 
 
 class OllamaGenerator:
+    RESPONSE_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "answer": {
+                "type": "string",
+                "description": "Only the final legal answer grounded in the retrieved excerpts.",
+            }
+        },
+        "required": ["answer"],
+    }
+
     def __init__(
         self,
         model: str = "qwen3:4b",
@@ -35,9 +47,10 @@ class OllamaGenerator:
             "Cite the source identifiers given with those excerpts. "
             "If the excerpts are insufficient, say so. "
             "Do not invent law, citations, or case holdings. "
-            "Return only the final answer. "
-            "Do not describe your reasoning, analysis process, or the steps "
-            "you used to reach the answer."
+            "Return the answer only through the required JSON object. "
+            "The answer field must contain only the final answer, never "
+            "reasoning, analysis, planning, or commentary about generating "
+            "the answer."
         ),
         client: ChatClient | None = None,
     ) -> None:
@@ -88,9 +101,10 @@ class OllamaGenerator:
         return (
             f"Question:\n{query.strip()}\n\n"
             f"Retrieved excerpts:\n{context}\n\n"
-            "Return only the final answer to the question. "
-            "Do not include analysis, reasoning, planning, or commentary "
-            "about the answer. Use only these excerpts. "
+            "Return a JSON object with exactly one field named "
+            '"answer". The answer field must contain only the final answer '
+            "to the question. Do not put analysis, reasoning, planning, "
+            "or commentary in it. Use only the retrieved excerpts. "
             "Cite each material claim with its [SOURCE: ...] identifier. "
             "If the excerpts do not support an answer, state that the "
             "retrieved excerpts are insufficient."
@@ -112,6 +126,22 @@ class OllamaGenerator:
 
         return "".join(parts)
 
+    @staticmethod
+    def _extract_answer(content: str) -> str:
+        try:
+            payload = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Ollama returned malformed structured output") from exc
+
+        if not isinstance(payload, dict):
+            raise RuntimeError("Ollama structured output must be a JSON object")
+
+        answer = payload.get("answer")
+        if not isinstance(answer, str) or not answer.strip():
+            raise RuntimeError("Ollama structured output contains no answer")
+
+        return answer.strip()
+
     def generate(self, query: str, results: list[RRFResult]) -> GenerationResult:
         response = self.client.chat(
             model=self.model,
@@ -122,6 +152,7 @@ class OllamaGenerator:
             stream=True,
             think=False,
             keep_alive="10m",
+            format=self.RESPONSE_SCHEMA,
             options={
                 "temperature": self.temperature,
                 "top_p": self.top_p,
@@ -129,18 +160,18 @@ class OllamaGenerator:
             },
         )
 
-        answer = self._streamed_content(response)
+        content = self._streamed_content(response)
 
-        if not answer and hasattr(response, "message"):
-            answer = getattr(response.message, "content", None) or ""
+        if not content and hasattr(response, "message"):
+            content = getattr(response.message, "content", None) or ""
 
-        if not answer and isinstance(response, dict):
-            answer = response.get("message", {}).get("content", "")
+        if not content and isinstance(response, dict):
+            content = response.get("message", {}).get("content", "")
 
-        if not answer or not str(answer).strip():
+        if not content or not str(content).strip():
             raise RuntimeError("Ollama returned an empty answer")
 
-        answer = str(answer).strip()
+        answer = self._extract_answer(str(content).strip())
         citations = [
             result.chunk_id
             for result in results[: self.max_chunks]
