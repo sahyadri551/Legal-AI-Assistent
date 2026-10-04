@@ -29,7 +29,7 @@ def inject_voice_input() -> None:
             button.className = "lexassist-voice-button";
             button.setAttribute("aria-label", "Voice input");
             button.title = "Voice input";
-            button.innerHTML = '<span aria-hidden="true">●</span>';
+            button.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path><path d="M9 21h6"></path></svg>';
 
             Object.assign(button.style, {
               width: "38px",
@@ -85,7 +85,7 @@ def inject_voice_input() -> None:
                 : "var(--muted, #94a3b8)";
               button.innerHTML = active
                 ? '<span aria-hidden="true">■</span>'
-                : '<span aria-hidden="true">●</span>';
+                : '<svg aria-hidden="true" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path><path d="M9 21h6"></path></svg>';
               button.title = active ? "Stop voice input" : "Voice input";
             };
 
