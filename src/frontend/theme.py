@@ -122,6 +122,20 @@ BASE_CSS = """
 }
 .nav-item.active { background:rgba(30,58,138,.42); color:#dbeafe; }
 .nav-item.active .icon { color:#60a5fa; }
+.st-key-nav_qa button, .st-key-nav_document button, .st-key-nav_cases button {
+  background:transparent; border:none; color:#94a3b8; border-radius:8px;
+  min-height:40px; padding:8px 12px; font-size:14px; font-weight:500;
+  justify-content:flex-start;
+}
+.st-key-nav_qa button:hover, .st-key-nav_document button:hover, .st-key-nav_cases button:hover {
+  background:rgba(255,255,255,.05); color:#e2e8f0;
+}
+.st-key-nav_qa button p, .st-key-nav_document button p, .st-key-nav_cases button p {
+  text-align:left;
+}
+[data-testid="stBottomBlockContainer"]::after {
+  content:"Powered by hybrid retrieval (RRF) + Groq.";
+}
 
 .st-key-newsession button {
   background:transparent; color:#cbd5e1; border:1px dashed rgba(148,163,184,.4);
@@ -492,7 +506,7 @@ BASE_CSS = """
   padding:16px 32px 12px;
 }
 [data-testid="stBottomBlockContainer"]::after {
-  content:"Powered by hybrid retrieval (RRF) & local LLMs.";
+  content:"Powered by hybrid retrieval (RRF) + Groq.";
   display:block;
   margin-top:8px;
   padding-left:4px;
