@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import re
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader
@@ -26,8 +27,8 @@ class WorkspaceService:
         cache_dir=".modal_cache",
         generator: GroqGenerator | None = None,
     ) -> None:
-        self.bm25 = BM25Retriever(bm25_index)
-        self.dense = DenseRetriever(dense_index, embedding_model, device, cache_dir)
+        self.bm25 = BM25Retriever(Path(bm25_index))
+        self.dense = DenseRetriever(Path(dense_index), embedding_model, device, Path(cache_dir))
         self.generator = generator or GroqGenerator(max_chunks=8, max_context_chars=12000)
 
     def search_case_law(self, query: str, top_k: int = 8) -> list[dict[str, Any]]:
