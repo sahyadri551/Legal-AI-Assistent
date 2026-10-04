@@ -12,13 +12,12 @@ class FakeClient:
 def test_prompt_contains_source_and_query():
     p=OllamaGenerator(client=FakeClient()).build_prompt("What is bail?",[result()])
     assert "[SOURCE: c1]" in p and "What is bail?" in p
-    assert "/no_think" in p
 
 def test_generate_returns_citation():
     c=FakeClient()
     r=OllamaGenerator(client=c).generate("What is bail?",[result()])
     assert r.model=="qwen3:4b" and r.citations==["c1"] and c.kwargs["options"]["temperature"]==0.2
-    assert "think" not in c.kwargs
+    assert c.kwargs["think"] is False
 
 def test_empty_answer_fails():
     class Empty:
