@@ -193,7 +193,6 @@ def render_topbar(backend_online: bool) -> None:
     dark = st.session_state.theme == "dark"
 
     with st.container(key="topbar"):
-        # The CSS overrides Streamlit's default flexbox spacing so it respects content widths
         title_col, status_col, cite_col, menu_col = st.columns(
             [3.2, 1.4, 2.0, 0.65], gap="small", vertical_alignment="center"
         )
@@ -291,7 +290,6 @@ def render_source(index: int, chunk: dict, cited: bool) -> None:
     sub = esc(" · ".join(str(p) for p in (kind, metadata.get("pdf_filename")) if p))
     label = esc(source_label(chunk_id))
     
-    # Detailed text is now exclusively locked within the pop-up modal
     caption_html = f'<div class="source-sub" style="margin-bottom: 12px;">{esc(caption)}</div>' if caption else ""
 
     with st.container(key=f"src_cited_{index}" if cited else f"src_{index}"):
