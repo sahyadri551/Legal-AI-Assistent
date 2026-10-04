@@ -1,21 +1,22 @@
-# Generation is delegated to Ollama. No local fine-tuning.
+# Generation is delegated to Groq. Retrieval and embeddings remain CPU-first.
 
-ollama:
-  base_url: http://127.0.0.1:11434
-  model: qwen3:4b
+groq:
+  base_url: https://api.groq.com/openai/v1
+  model: openai/gpt-oss-120b
   timeout_seconds: 300
-  # Keep the KV cache small enough for CPU-only machines.
-  num_ctx: 2048
+  max_completion_tokens: 2048
+  max_retries: 5
+  retry_base_seconds: 1.0
+  reasoning_effort: medium
 
 sampling:
   temperature: 0.2
   top_p: 0.9
-  num_predict: 384
 
 context:
   # Number of fused chunks passed as grounded context.
   max_chunks: 8
-  max_context_chars: 4500
+  max_context_chars: 12000
 
 prompt:
   require_citations: true

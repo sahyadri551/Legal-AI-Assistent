@@ -6,7 +6,7 @@ comparison:
     - bm25_only
     - dense_only
     - hybrid_rrf
-  generation_model: qwen3:4b
+  generation_model: openai/gpt-oss-120b
   hold_generation_fixed: true
 
 retrieval_metrics:

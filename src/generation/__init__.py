@@ -1,3 +1,4 @@
-"""Grounded legal answer generation via Ollama."""
-from generation.ollama import OllamaGenerator, GenerationResult
-__all__ = ["OllamaGenerator", "GenerationResult"]
+"""Grounded legal answer generation via Groq."""
+from generation.groq import GenerationResult, GroqGenerator
+
+__all__ = ["GroqGenerator", "GenerationResult"]

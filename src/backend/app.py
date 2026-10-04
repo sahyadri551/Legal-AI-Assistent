@@ -1,20 +1,25 @@
 """FastAPI application for end-to-end legal QA."""
 from __future__ import annotations
+
 from dataclasses import asdict
-import httpx
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+
 from backend.qa import HybridQAService
-from generation.ollama import OllamaOutOfMemoryError
+from generation.groq import GroqRateLimitError
+
 
 class QARequest(BaseModel):
     query: str = Field(min_length=1)
+
 
 class QAResponse(BaseModel):
     answer: str
     model: str
     citations: list[str]
     retrieved_chunks: list[dict]
+
 
 def create_app(service: HybridQAService | None = None) -> FastAPI:
     app = FastAPI(title="Indian Legal Research Assistant", version="0.1.0")
@@ -36,12 +41,10 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except FileNotFoundError as exc:
             raise HTTPException(status_code=503, detail=f"Retrieval indexes are unavailable: {exc}") from exc
-        except httpx.TimeoutException as exc:
-            raise HTTPException(status_code=504, detail="Ollama generation timed out. Check that Ollama is running and the model is available.") from exc
-        except httpx.HTTPError as exc:
-            raise HTTPException(status_code=502, detail=f"Ollama request failed: {exc}") from exc
-        except OllamaOutOfMemoryError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except TimeoutError as exc:
+            raise HTTPException(status_code=504, detail=str(exc)) from exc
+        except GroqRateLimitError as exc:
+            raise HTTPException(status_code=429, detail=str(exc)) from exc
         except RuntimeError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -52,10 +55,14 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
             retrieved_chunks=[asdict(chunk) for chunk in result.retrieved],
         )
 
+
     return app
+
 
 app = create_app()
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("backend.app:app", host="127.0.0.1", port=8000, reload=False)
