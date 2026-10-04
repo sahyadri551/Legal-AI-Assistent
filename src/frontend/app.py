@@ -15,7 +15,6 @@ from frontend.formatting import (
     initials,
     md_escape,
     prepare_answer,
-    shorten,
     source_badges,
     source_label,
     user_text,
@@ -55,24 +54,13 @@ SUGGESTIONS = [
 # ---------------------------------------------------------- backend cache
 @st.cache_resource(show_spinner=False)
 def _get_store(path: Path) -> SessionStore:
-    """Load the session store once per server process and reuse it.
-
-    ``SessionStore`` still writes straight through to disk on every mutation
-    (new session, new turn, theme change, ...), so data is never stale - this
-    cache only stops Streamlit from re-reading and re-parsing the whole
-    sessions.json file on every rerun, which otherwise happens on nearly
-    every click.
-    """
+    """Load the session store once per server process and reuse it."""
     return SessionStore(path)
 
 
 # ------------------------------------------------------- client-side cache
 def _bootstrap_from_local_storage() -> None:
-    """Once per browser tab: if the URL has no theme/session hint yet, pull
-    the last-used values out of localStorage so a fresh tab (or a server
-    restart) opens with the user's previous theme instead of flashing the
-    default light theme first.
-    """
+    """Load session from local storage to prevent default theme flash."""
     if st.session_state.get("_ls_bootstrapped"):
         return
     st.session_state._ls_bootstrapped = True
@@ -101,8 +89,7 @@ def _bootstrap_from_local_storage() -> None:
 
 
 def _sync_client_cache(theme: str, active_id: str) -> None:
-    """Mirror the active theme/session into the URL and localStorage so
-    they survive a hard refresh or reopening the app in a new tab."""
+    """Mirror the active theme/session into the URL and localStorage."""
     st.query_params["theme"] = theme
     st.query_params["sid"] = active_id
     components.html(
@@ -206,8 +193,9 @@ def render_topbar(backend_online: bool) -> None:
     dark = st.session_state.theme == "dark"
 
     with st.container(key="topbar"):
-        title_col, status_col, cite_col, theme_col, clear_col, export_col = st.columns(
-            [10, 3.2, 2.6, 1, 1, 1], gap="small", vertical_alignment="center"
+        # The CSS overrides Streamlit's default flexbox spacing so it respects content widths
+        title_col, status_col, cite_col, menu_col = st.columns(
+            [1, 1, 1, 1], gap="small", vertical_alignment="center"
         )
         title_col.markdown(
             '<div class="top-title">Legal Research QA</div>'
@@ -225,29 +213,32 @@ def render_topbar(backend_online: bool) -> None:
                 key="include_citations",
                 help="Show [SOURCE: ...] citation tags inline in answers",
             )
-        with theme_col:
-            if st.button(
-                ":material/light_mode:" if dark else ":material/dark_mode:",
-                key="hdr_theme",
-                help="Switch to light theme" if dark else "Switch to dark theme",
-            ):
-                st.session_state.theme = "light" if dark else "dark"
-                store.set_theme(st.session_state.theme)
-                st.rerun()
-        with clear_col:
-            if st.button(":material/delete_sweep:", key="hdr_clear", help="Clear this conversation"):
-                store.clear(active_id)
-                st.session_state.error = None
-                st.rerun()
-        with export_col:
-            st.download_button(
-                ":material/download:",
-                data=store.export_text(active_id) or "No research session yet.",
-                file_name="legal_research_session.txt",
-                mime="text/plain",
-                key="hdr_export",
-                help="Export this session",
-            )
+        with menu_col:
+            with st.popover("⋮"):
+                if st.button(
+                    "🌓 Toggle Theme" if dark else "🌙 Toggle Theme",
+                    key="hdr_theme",
+                    help="Switch theme",
+                    use_container_width=True
+                ):
+                    st.session_state.theme = "light" if dark else "dark"
+                    store.set_theme(st.session_state.theme)
+                    st.rerun()
+                
+                if st.button("🗑️ Clear Chat", key="hdr_clear", help="Clear this conversation", use_container_width=True):
+                    store.clear(active_id)
+                    st.session_state.error = None
+                    st.rerun()
+                    
+                st.download_button(
+                    "📥 Export Session",
+                    data=store.export_text(active_id) or "No research session yet.",
+                    file_name="legal_research_session.txt",
+                    mime="text/plain",
+                    key="hdr_export",
+                    help="Export this session",
+                    use_container_width=True
+                )
 
 
 # --------------------------------------------------------------- messages
@@ -298,18 +289,20 @@ def render_source(index: int, chunk: dict, cited: bool) -> None:
     caption = first_line(metadata.get("caption_text"))
     kind = str(metadata.get("doc_type") or "").title()
     sub = esc(" · ".join(str(p) for p in (kind, metadata.get("pdf_filename")) if p))
-    caption_html = f'<div class="source-sub">{esc(caption)}</div>' if caption else ""
+    label = esc(source_label(chunk_id))
+    
+    # Detailed text is now exclusively locked within the pop-up modal
+    caption_html = f'<div class="source-sub" style="margin-bottom: 12px;">{esc(caption)}</div>' if caption else ""
 
     with st.container(key=f"src_cited_{index}" if cited else f"src_{index}"):
-        st.markdown(
-            f'<div class="source-title">{index}. {esc(source_label(chunk_id))}</div>'
-            f'<div class="source-sub">{sub}</div>{caption_html}'
-            f'<div class="source-text">“{esc(shorten(text))}”</div>'
-            f'<div class="badges">{source_badges(chunk, cited)}</div>',
-            unsafe_allow_html=True,
-        )
-        with st.expander("View full excerpt"):
-            st.markdown(f'<div class="excerpt-full">{esc(text)}</div>', unsafe_allow_html=True)
+        with st.popover(f"{index}. {label}", use_container_width=True):
+            st.markdown(
+                f'<div class="source-title">{index}. {label}</div>'
+                f'<div class="source-sub">{sub}</div>{caption_html}'
+                f'<div class="badges" style="margin-bottom: 16px;">{source_badges(chunk, cited)}</div>'
+                f'<div class="excerpt-full">{esc(text)}</div>',
+                unsafe_allow_html=True,
+            )
 
 
 def render_context(turn: dict) -> None:
@@ -344,7 +337,6 @@ try:
 except BackendError:
     backend_online = False
 
-# chat_input must be top-level so Streamlit pins it to the bottom of the page.
 prompt = st.chat_input("Ask a legal question or request document analysis...", max_chars=2000)
 prompt = prompt or st.session_state.pop("pending_query", None)
 

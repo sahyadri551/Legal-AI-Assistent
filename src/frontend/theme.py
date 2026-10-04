@@ -74,7 +74,7 @@ BASE_CSS = """
 .stApp button [data-testid="stMarkdownContainer"] p { color:inherit !important; }
 .icon { flex:none; }
 
-/* Streamlit chrome: remove the fixed header that covered our top bar */
+/* Streamlit chrome fixes for sticky headers */
 [data-testid="stHeader"] { background:transparent; height:0; min-height:0; pointer-events:none; }
 [data-testid="stSidebarCollapsedControl"], [data-testid="stExpandSidebarButton"] { pointer-events:auto; }
 [data-testid="stSidebarCollapsedControl"] button, [data-testid="stExpandSidebarButton"] {
@@ -82,10 +82,14 @@ BASE_CSS = """
 }
 [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"],
 [data-testid="stDeployButton"], .stDeployButton, #MainMenu, footer { display:none !important; }
+
+/* MUST be visible for sticky headers to work */
 [data-testid="stMainBlockContainer"], section.main .block-container {
-  max-width:none !important; padding:0 !important;
+  max-width:none !important; padding:0 !important; overflow: visible !important;
 }
-[data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { gap:0; }
+[data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { 
+  gap:0; overflow: visible !important; 
+}
 
 /* ================= Sidebar ================= */
 [data-testid="stSidebar"], [data-testid="stSidebar"] > div:first-child { background:var(--sidebar); }
@@ -96,9 +100,6 @@ BASE_CSS = """
   padding:0; margin:0; background:transparent;
 }
 [data-testid="stSidebarHeader"] button, [data-testid="stSidebarCollapseButton"] button { color:#94a3b8; }
-/* stSidebarUserContent is the scrolling ancestor for the sticky user box below:
-   it must have a bounded height + overflow for position:sticky to hold the
-   box at the bottom once the session list grows past one screen. */
 [data-testid="stSidebarUserContent"] {
   padding:0 12px !important; height:100vh; overflow-y:auto; overflow-x:hidden;
 }
@@ -149,8 +150,6 @@ BASE_CSS = """
 [class*="st-key-srow_"]:hover [data-testid="stColumn"]:last-child { opacity:1; }
 @media (hover:none) { [class*="st-key-srow_"] [data-testid="stColumn"]:last-child { opacity:1; } }
 
-/* Sticky "Legal Researcher / Local workspace" footer: stays pinned to the
-   bottom-left of the sidebar even once the session list scrolls. */
 .st-key-userbox {
   position:sticky; bottom:0; z-index:5;
   margin:auto -12px 0; padding:16px; border-top:1px solid var(--sidebar-border);
@@ -166,20 +165,20 @@ BASE_CSS = """
 
 /* ================= Top bar ================= */
 .st-key-topbar {
-  position:sticky; top:0; z-index:100; height:64px; padding:0 24px; gap:0;
+  position:sticky; top:0; z-index:999999; height:64px; padding:0 24px; gap:0;
   justify-content:center; background:var(--surface); border-bottom:1px solid var(--border);
   box-shadow:0 1px 3px var(--shadow);
 }
 .st-key-topbar [data-testid="stHorizontalBlock"] { flex-wrap:nowrap !important; gap:4px; align-items:center; }
-/* Only the title column is allowed to shrink/truncate. Every other column
-   (status pill, citations toggle, action buttons) keeps its natural content
-   width via flex:0 0 auto - without this, Streamlit's ratio-based column
-   widths plus a shared min-width:0 let columns collapse toward zero and
-   spill their contents over their neighbours instead of wrapping. */
+
+/* Flex control: Title is compact, status pill fills the middle space to push right elements */
 .st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
-  flex:1 1 auto !important; min-width:0 !important;
+  flex: 0 0 auto !important; min-width:max-content !important; padding-right: 16px;
 }
-.st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:first-child) {
+.st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) {
+  flex: 1 1 auto !important; min-width:0 !important;
+}
+.st-key-topbar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:first-child):not(:nth-child(2)) {
   flex:0 0 auto !important; min-width:max-content !important;
 }
 .st-key-topbar [data-testid="stMarkdownContainer"] { margin:0; }
@@ -193,28 +192,47 @@ BASE_CSS = """
   font-size:12px; color:var(--muted); margin-top:1px;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.pill-wrap { display:flex; justify-content:flex-end; }
+
+/* Align pill to left now */
+.pill-wrap { display:flex; justify-content:flex-start; }
 .status-pill {
   display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
   background:var(--surface2); border:1px solid var(--border); border-radius:999px;
   padding:5px 12px; color:var(--body); font-size:12px; font-weight:500;
 }
 .status-dot { width:8px; height:8px; border-radius:50%; }
-/* Include-citations toggle: lives inline in the top bar now, instead of a
-   fixed-position element that used to overlap the footer note. */
+
 .st-key-topbar [data-testid="stCheckbox"] { display:flex; align-items:center; justify-content:flex-end; }
 .st-key-topbar [data-testid="stCheckbox"] label {
   gap:6px; white-space:nowrap; font-size:12.5px; color:var(--muted);
 }
 .st-key-topbar [data-testid="stCheckbox"] label p { font-size:12.5px !important; color:var(--muted) !important; }
+
+/* Popover & Action Buttons */
+.st-key-topbar [data-testid="stPopover"] > button,
 .st-key-topbar [data-testid="stButton"] button,
 .st-key-topbar [data-testid="stDownloadButton"] button {
   background:transparent; border:none; color:var(--muted); width:38px; min-height:38px;
   padding:0; border-radius:8px; justify-content:center;
 }
+.st-key-topbar [data-testid="stPopover"] > button:hover,
 .st-key-topbar [data-testid="stButton"] button:hover,
 .st-key-topbar [data-testid="stDownloadButton"] button:hover {
   background:var(--accent-soft); color:var(--accent-ink);
+}
+
+/* Popover Menu Internal Styling */
+[data-testid="stPopoverBody"] { padding: 12px !important; }
+[data-testid="stPopoverBody"] [data-testid="stButton"] button,
+[data-testid="stPopoverBody"] [data-testid="stDownloadButton"] button {
+  width: 100% !important; min-height: 36px !important; padding: 6px 12px !important;
+  justify-content: flex-start !important; border: 1px solid var(--border) !important;
+  background: transparent !important; color: var(--text) !important; border-radius: 6px !important;
+  margin-bottom: 8px; font-size: 14px;
+}
+[data-testid="stPopoverBody"] [data-testid="stButton"] button:hover,
+[data-testid="stPopoverBody"] [data-testid="stDownloadButton"] button:hover {
+  background: var(--surface2) !important; border-color: var(--accent) !important;
 }
 
 /* ================= Workspace ================= */
@@ -252,7 +270,8 @@ BASE_CSS = """
 .msg-user .bubble {
   max-width:78%; background:var(--accent-dark); padding:13px 18px;
   border-radius:16px 4px 16px 16px; font-size:15px; line-height:1.6;
-  overflow-wrap:break-word; word-break:normal; box-shadow:0 1px 2px var(--shadow);
+  overflow-wrap:anywhere !important; word-break:break-word !important; white-space:pre-wrap !important;
+  box-shadow:0 1px 2px var(--shadow);
 }
 .msg-user .bubble, .msg-user .bubble * { color:#fff !important; }
 .msg-user .avatar {
@@ -262,6 +281,7 @@ BASE_CSS = """
 [class*="st-key-ai_"] {
   position:relative; margin-left:44px; background:var(--surface); border:1px solid var(--border);
   border-radius:4px 16px 16px 16px; padding:16px 20px; gap:.7rem; box-shadow:0 1px 2px var(--shadow);
+  max-width: 100%; overflow: hidden;
 }
 [class*="st-key-ai_"]::before {
   content:""; position:absolute; left:-44px; top:2px; width:32px; height:32px; border-radius:50%;
@@ -270,7 +290,8 @@ BASE_CSS = """
 }
 [class*="st-key-ai_"] [data-testid="stMarkdownContainer"] p,
 [class*="st-key-ai_"] [data-testid="stMarkdownContainer"] li {
-  font-size:15px; line-height:1.75; color:var(--body); overflow-wrap:break-word; word-break:normal;
+  font-size:15px; line-height:1.75; color:var(--body); 
+  overflow-wrap:anywhere !important; word-break:break-word !important; white-space:pre-wrap !important;
 }
 .ai-foot { border-top:1px solid var(--border); padding-top:10px; color:var(--muted); font-size:12px; }
 .source-tag {
@@ -308,12 +329,26 @@ BASE_CSS = """
   background:var(--border); color:var(--body);
 }
 .st-key-context_scroll { padding:12px; }
+
+/* Restyle the container to host the Popover Button */
 [class*="st-key-src_"] {
-  border:1px solid var(--border); border-radius:10px; padding:12px; gap:.4rem; background:var(--surface);
+  padding:0 !important; border:none !important; background:transparent !important; margin-bottom:8px;
 }
-[class*="st-key-src_cited_"] { border-color:var(--accent); background:var(--cited-bg); }
-.source-title { font-size:13px; font-weight:600; color:var(--text); line-height:1.4; overflow-wrap:break-word; word-break:normal; }
-.source-sub { font-size:12px; color:var(--muted); margin-top:2px; overflow-wrap:break-word; word-break:normal; }
+/* The Popover button itself becomes the list card */
+[class*="st-key-src_"] [data-testid="stPopover"] > button {
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+  color: var(--text); padding: 12px; justify-content: flex-start; text-align: left;
+  font-weight: 600; font-size: 13px; width: 100%; transition: background 0.15s;
+}
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover {
+  background: var(--surface2);
+}
+[class*="st-key-src_cited_"] [data-testid="stPopover"] > button {
+  border-color: var(--accent); background: var(--cited-bg); color: var(--accent-ink);
+}
+
+.source-title { font-size:15px; font-weight:600; color:var(--text); line-height:1.4; overflow-wrap:break-word; word-break:normal; }
+.source-sub { font-size:13px; color:var(--muted); margin-top:2px; overflow-wrap:break-word; word-break:normal; }
 .source-text {
   font:italic 13px/1.65 'Merriweather', Georgia, serif; color:var(--body); margin-top:8px;
   overflow-wrap:break-word; word-break:normal;
@@ -324,14 +359,10 @@ BASE_CSS = """
 .badge.dense { background:var(--purple-bg); color:var(--purple-fg); }
 .badge.rrf { background:var(--green-bg); color:var(--green-fg); }
 .badge.cited { background:var(--accent-soft); color:var(--accent-ink); }
-[class*="st-key-src_"] [data-testid="stExpander"] { border:none; background:transparent; }
-[class*="st-key-src_"] [data-testid="stExpander"] details { border:none; background:transparent; }
-[class*="st-key-src_"] [data-testid="stExpander"] summary { padding:4px 0; font-size:12px; }
-[class*="st-key-src_"] [data-testid="stExpander"] summary,
-[class*="st-key-src_"] [data-testid="stExpander"] summary p { color:var(--accent-ink) !important; }
+
 .excerpt-full {
-  font:13px/1.7 'Merriweather', Georgia, serif; color:var(--body); white-space:pre-wrap;
-  overflow-wrap:break-word; word-break:normal; max-height:320px; overflow-y:auto;
+  font:14px/1.7 'Merriweather', Georgia, serif; color:var(--body); white-space:pre-wrap;
+  overflow-wrap:break-word; word-break:normal;
 }
 
 /* ================= Input area ================= */
@@ -377,7 +408,6 @@ BASE_CSS = """
   [data-testid="stBottomBlockContainer"]::after { display:none; }
 }
 """
-
 
 def build_css(theme: str = "light") -> str:
     """Return a ``<style>`` block for ``theme`` ("light" or "dark")."""
