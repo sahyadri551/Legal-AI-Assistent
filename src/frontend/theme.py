@@ -218,9 +218,16 @@ BASE_CSS = """
 .st-key-topbar [data-testid="stCheckbox"] label p { font-size:12.5px !important; color:var(--muted) !important; }
 
 /* Popover & Action Buttons */
-.st-key-topbar [data-testid="stPopover"] > button {
-  background:var(--surface2); border:1px solid var(--border); color:var(--text);
+.st-key-topbar [data-testid="stPopover"] > button,
+.st-key-topbar [data-testid="stPopover"] > button > div,
+.st-key-topbar [data-testid="stPopover"] > button > div > div {
+  background-color:var(--surface2) !important; border:1px solid var(--border) !important;
+  color:var(--text) !important;
   width:44px; min-height:40px; padding:0; border-radius:10px; justify-content:center;
+  box-shadow:none !important;
+}
+.st-key-topbar [data-testid="stPopover"] > button svg {
+  color:var(--muted) !important; fill:var(--muted) !important;
 }
 .st-key-topbar [data-testid="stPopover"] > button p,
 .st-key-topbar [data-testid="stPopover"] > button span { color:var(--text) !important; }
@@ -263,11 +270,15 @@ BASE_CSS = """
   min-width:0 !important; width:auto !important; flex-shrink:1 !important;
 }
 .st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
-  flex:1 1 0 !important; min-width:0 !important;
+  flex:1 1 auto !important; min-width:0 !important; width:auto !important;
 }
 .st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+<<<<<<< HEAD
   flex:0 0 min(360px, 32%) !important; min-width:0 !important;
 >>>>>>> a773c99de4cf119f54fe043e209b551426dd7acf
+=======
+  flex:0 0 320px !important; width:320px !important; min-width:320px !important;
+>>>>>>> cc5c37b488b6171ea74ee3106d8c7799d2280503
 }
 .st-key-workspace [data-testid="stHorizontalBlock"] {
   min-width:0 !important; width:100% !important;
@@ -321,6 +332,7 @@ BASE_CSS = """
   display:grid; place-items:center; font-size:12px; font-weight:700; margin-top:2px;
 }
 [class*="st-key-ai_"] {
+<<<<<<< HEAD
   position:relative; margin-left:44px; background:var(--surface); border:1px solid var(--border);
   border-radius:4px 16px 16px 16px; padding:16px 20px; gap:.7rem; box-shadow:0 1px 2px var(--shadow);
 <<<<<<< HEAD
@@ -328,6 +340,17 @@ BASE_CSS = """
 =======
   width:calc(100% - 44px); min-width:0 !important; max-width:calc(100% - 44px); overflow:visible;
 >>>>>>> a773c99de4cf119f54fe043e209b551426dd7acf
+=======
+  position:relative; margin-left:44px; margin-right:0;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:4px 16px 16px 16px; padding:16px 20px; gap:.7rem;
+  box-shadow:0 1px 2px var(--shadow);
+  width:auto !important; min-width:0 !important; max-width:none !important;
+  box-sizing:border-box; overflow:visible;
+}
+[class*="st-key-ai_"] > [data-testid="stVerticalBlock"] {
+  min-width:0 !important; max-width:none !important; width:100% !important;
+>>>>>>> cc5c37b488b6171ea74ee3106d8c7799d2280503
 }
 [class*="st-key-ai_"]::before {
   content:""; position:absolute; left:-44px; top:2px; width:32px; height:32px; border-radius:50%;
@@ -412,8 +435,10 @@ BASE_CSS = """
   background-color:var(--surface2) !important; border-color:var(--border-strong) !important;
 >>>>>>> a773c99de4cf119f54fe043e209b551426dd7acf
 }
-[class*="st-key-src_"] [data-testid="stPopover"] > button:hover {
-  background: var(--surface2);
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover,
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover > div,
+[class*="st-key-src_"] [data-testid="stPopover"] > button:hover > div > div {
+  background-color:var(--surface2) !important;
 }
 [class*="st-key-src_cited_"] [data-testid="stPopover"] > button,
 [class*="st-key-src_cited_"] [data-testid="stPopover"] > button > div,
@@ -446,8 +471,18 @@ BASE_CSS = """
 }
 
 /* ================= Input area ================= */
-[data-testid="stBottom"], [data-testid="stBottom"] > div { background:var(--surface); }
-[data-testid="stBottom"] { border-top:1px solid var(--border); }
+[data-testid="stBottom"],
+[data-testid="stBottom"] > div,
+[data-testid="stBottom"] > div > div,
+[data-testid="stBottomBlockContainer"] {
+  background-color:var(--surface) !important;
+}
+[data-testid="stBottom"] { border-top:1px solid var(--border) !important; }
+[data-testid="stBottom"] [data-testid="stChatInput"],
+[data-testid="stBottom"] [data-baseweb="textarea"],
+[data-testid="stBottom"] [data-baseweb="base-input"] {
+  background-color:var(--surface) !important;
+}
 [data-testid="stBottomBlockContainer"] { max-width:none; padding:16px 32px 12px; }
 [data-testid="stBottomBlockContainer"]::after {
   content:"Powered by hybrid retrieval (RRF) & local LLMs.";
@@ -477,7 +512,7 @@ BASE_CSS = """
 <<<<<<< HEAD
 =======
   .st-key-workspace > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
-    flex:0 0 300px !important;
+    flex:0 0 300px !important; width:300px !important; min-width:300px !important;
   }
 >>>>>>> a773c99de4cf119f54fe043e209b551426dd7acf
   .st-key-context { position:static; }
