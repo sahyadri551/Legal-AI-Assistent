@@ -195,7 +195,7 @@ def render_topbar(backend_online: bool) -> None:
     with st.container(key="topbar"):
         # The CSS overrides Streamlit's default flexbox spacing so it respects content widths
         title_col, status_col, cite_col, menu_col = st.columns(
-            [1, 1, 1, 1], gap="small", vertical_alignment="center"
+            [3.2, 1.4, 2.0, 0.65], gap="small", vertical_alignment="center"
         )
         title_col.markdown(
             '<div class="top-title">Legal Research QA</div>'
@@ -214,24 +214,24 @@ def render_topbar(backend_online: bool) -> None:
                 help="Show [SOURCE: ...] citation tags inline in answers",
             )
         with menu_col:
-            with st.popover("⋮"):
+            with st.popover("⋮", help="More actions"):
                 if st.button(
-                    "🌓 Toggle Theme" if dark else "🌙 Toggle Theme",
+                    ":material/dark_mode: Toggle theme" if dark else ":material/light_mode: Toggle theme",
                     key="hdr_theme",
-                    help="Switch theme",
-                    use_container_width=True
+                    use_container_width=True,
                 ):
                     st.session_state.theme = "light" if dark else "dark"
                     store.set_theme(st.session_state.theme)
+                    st.query_params["theme"] = st.session_state.theme
                     st.rerun()
                 
-                if st.button("🗑️ Clear Chat", key="hdr_clear", help="Clear this conversation", use_container_width=True):
+                if st.button(":material/delete_sweep: Clear chat", key="hdr_clear", use_container_width=True):
                     store.clear(active_id)
                     st.session_state.error = None
                     st.rerun()
                     
                 st.download_button(
-                    "📥 Export Session",
+                    ":material/download: Export session",
                     data=store.export_text(active_id) or "No research session yet.",
                     file_name="legal_research_session.txt",
                     mime="text/plain",
@@ -314,7 +314,7 @@ def render_context(turn: dict) -> None:
             f'<span class="ctx-count">{len(chunks)}</span></div>',
             unsafe_allow_html=True,
         )
-        with st.container(height=480, border=False, key="context_scroll"):
+        with st.container(height=520, border=False, key="context_scroll"):
             for index, chunk in enumerate(chunks, start=1):
                 render_source(index, chunk, str(chunk.get("chunk_id")) in cited_ids)
 
@@ -350,7 +350,7 @@ has_sources = bool(latest and latest.get("retrieved_chunks"))
 
 with st.container(key="workspace"):
     if has_sources:
-        chat_area, context_area = st.columns([1, 0.4], gap="large")
+        chat_area, context_area = st.columns([1, 0.38], gap="large")
     else:
         chat_area, context_area = st.container(), None
 
