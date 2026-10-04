@@ -26,7 +26,7 @@ def test_ask_parses_response(monkeypatch):
             200,
             json={
                 "answer": "[SOURCE: c1] Bail.",
-                "model": "qwen3:4b",
+                "model": "openai/gpt-oss-120b",
                 "citations": ["c1"],
                 "retrieved_chunks": [{"chunk_id": "c1", "text": "Bail."}],
             },
@@ -55,3 +55,24 @@ def test_ask_reports_backend_error(monkeypatch):
     monkeypatch.setattr(httpx, "post", fake_post)
     with pytest.raises(BackendError, match="Indexes unavailable"):
         LegalQAClient().ask("What is bail?")
+
+
+def test_case_law_search_posts_query(monkeypatch):
+    def fake_post(url, json, timeout):
+        assert url.endswith("/case-law/search")
+        assert json == {"query": "bail", "top_k": 5}
+        return httpx.Response(200, json={"results": [{"chunk_id": "judgment:1:0"}]}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    assert LegalQAClient().search_case_law("bail", 5)[0]["chunk_id"] == "judgment:1:0"
+
+
+def test_document_analysis_posts_base64(monkeypatch):
+    def fake_post(url, json, timeout):
+        assert url.endswith("/document-analysis")
+        assert json["filename"] == "x.pdf"
+        assert json["content_base64"] == "aGVsbG8="
+        return httpx.Response(200, json={"filename": "x.pdf", "pages": 1, "answer": "ok"}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    assert LegalQAClient().analyze_document("x.pdf", b"hello", "Summarize")["answer"] == "ok"
