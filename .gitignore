@@ -41,12 +41,6 @@ huggingface/
 # Runtime artifacts (keep directory placeholders)
 data/raw/*
 !data/raw/.gitkeep
-data/processed/*
-!data/processed/.gitkeep
-data/indexes/bm25/*
-!data/indexes/bm25/.gitkeep
-data/indexes/faiss/*
-!data/indexes/faiss/.gitkeep
 data/sessions.json
 data/sessions.json.bak
 data/sessions.json.tmp
