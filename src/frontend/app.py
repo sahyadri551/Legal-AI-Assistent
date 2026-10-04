@@ -22,6 +22,8 @@ from frontend.formatting import (
 from frontend.icons import icon
 from frontend.sessions import THEMES, SessionStore
 from frontend.theme import build_css
+from frontend.voice import inject_voice_input
+from frontend.workspaces import render_case_law_search, render_document_analysis
 
 st.set_page_config(
     page_title="LexAssist AI",
@@ -114,6 +116,7 @@ for key, default in (
     ("pending_query", None),
     ("include_citations", True),
     ("scroll_pending", False),
+    ("workspace", "qa"),
 ):
     if key not in st.session_state:
         st.session_state[key] = default
@@ -139,13 +142,32 @@ def render_sidebar() -> None:
     with st.sidebar:
         st.markdown(
             f'<div class="brand">{icon("scale", 22)}<span class="brand-name">LexAssist AI</span></div>'
-            '<div class="side-label">Workspaces</div>'
-            f'<div class="nav-item active">{icon("comments")}<span>Legal Research QA</span></div>'
-            f'<div class="nav-item" title="Coming soon">{icon("file")}<span>Document Analysis</span></div>'
-            f'<div class="nav-item" title="Coming soon">{icon("search")}<span>Case Law Search</span></div>'
-            '<div class="side-label">Recent Sessions</div>',
+            '<div class="side-label">Workspaces</div>',
             unsafe_allow_html=True,
         )
+        workspace = st.session_state.workspace
+        if st.button(
+            f":material/comments: Legal Research QA",
+            key="nav_qa",
+            use_container_width=True,
+        ):
+            st.session_state.workspace = "qa"
+            st.rerun()
+        if st.button(
+            f":material/description: Document Analysis",
+            key="nav_document",
+            use_container_width=True,
+        ):
+            st.session_state.workspace = "document"
+            st.rerun()
+        if st.button(
+            f":material/search: Case Law Search",
+            key="nav_cases",
+            use_container_width=True,
+        ):
+            st.session_state.workspace = "cases"
+            st.rerun()
+        st.markdown('<div class="side-label">Recent Sessions</div>', unsafe_allow_html=True)
 
         with st.container(key="newsession"):
             if st.button(":material/add: New session", key="new_session", use_container_width=True):
@@ -335,16 +357,27 @@ try:
 except BackendError:
     backend_online = False
 
-prompt = st.chat_input("Ask a legal question or request document analysis...", max_chars=2000)
-prompt = prompt or st.session_state.pop("pending_query", None)
+prompt = None
+if st.session_state.workspace == "qa":
+    prompt = st.chat_input("Ask a legal question...", max_chars=2000)
+    inject_voice_input()
+    prompt = prompt or st.session_state.pop("pending_query", None)
 
 render_sidebar()
-render_topbar(backend_online)
+if st.session_state.workspace == "document":
+    render_document_analysis(client)
+elif st.session_state.workspace == "cases":
+    render_case_law_search(client)
+else:
+    render_topbar(backend_online)
 
 session = store.get(active_id) or {"turns": []}
 turns: list[dict] = session["turns"]
 latest = turns[-1] if turns else None
 has_sources = bool(latest and latest.get("retrieved_chunks"))
+
+if st.session_state.workspace != "qa":
+    st.stop()
 
 with st.container(key="workspace"):
     if has_sources:
