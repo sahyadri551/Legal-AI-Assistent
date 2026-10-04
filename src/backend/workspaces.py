@@ -43,7 +43,7 @@ class WorkspaceService:
         return [asdict(item) for item in fused]
 
     @staticmethod
-    def _extract_pdf(content: bytes) -> tuple[int, list[str]]:
+    def _extract_pdf(content: bytes) -> tuple[int, list[tuple[int, str]]]:
         try:
             reader = PdfReader(io.BytesIO(content))
             pages = [(page.extract_text() or "").strip() for page in reader.pages]
@@ -52,7 +52,7 @@ class WorkspaceService:
         nonempty = [(i + 1, text) for i, text in enumerate(pages) if text]
         if not nonempty:
             raise ValueError("The PDF contains no extractable text. Scanned PDFs need OCR first.")
-        return len(pages), [f"[Page {page}]\n{text}" for page, text in nonempty]
+        return len(pages), nonempty
 
     def analyze_document(self, filename: str, content: bytes, instruction: str) -> dict[str, Any]:
         if not filename.lower().endswith(".pdf"):
@@ -62,7 +62,8 @@ class WorkspaceService:
         if not instruction.strip():
             raise ValueError("instruction must not be empty")
 
-        pages, blocks = self._extract_pdf(content)
+        pages, page_blocks = self._extract_pdf(content)
+        blocks = [f"[Page {page}]\n{text}" for page, text in page_blocks]
         prompt = (
             f"{instruction.strip()}\n\n"
             "This is a temporary uploaded legal document. Use only the supplied pages. "
@@ -72,7 +73,7 @@ class WorkspaceService:
         generated = self.generator.generate_with_context(prompt, blocks, source_prefix="SOURCE")
         cited = _SOURCE_RE.findall(generated.answer)
         sources = []
-        by_page = {i + 1: text for i, text in enumerate([b.split("\n", 1)[-1] for b in blocks])}
+        by_page = {page: text for page, text in page_blocks}
         for source in cited:
             match = re.fullmatch(r"(\d+)", source.strip())
             if match:
