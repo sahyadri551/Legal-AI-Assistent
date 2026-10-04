@@ -218,15 +218,16 @@ class GroqGenerator:
                 break
         if not excerpts:
             raise ValueError("context must not be empty")
+        context = "\n\n".join(excerpts)
         prompt = (
             f"Question:\n{query.strip()}\n\n"
-            f"Retrieved excerpts:\n{'\\n\\n'.join(excerpts)}\n\n"
+            f"Retrieved excerpts:\n{context}\n\n"
             "Return a JSON object with exactly one field named "
             '"answer". The answer field must contain only the final answer. '
             "Use only the provided excerpts. Cite every material claim with "
             f"its [{source_prefix}: N] identifier. If the excerpts are insufficient, say so."
         )
-        return self._generate_prompt(prompt, source_prefix)
+        return self._generate_prompt(prompt)
 
     def _generate_prompt(self, prompt: str) -> GenerationResult:
         messages = [
