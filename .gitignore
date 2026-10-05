@@ -50,3 +50,6 @@ experiments/runs/*
 # Logs
 *.log
 logs/
+
+.vercel
+.env*
