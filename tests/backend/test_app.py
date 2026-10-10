@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from retrieval.rrf import RRFResult
 from backend.app import create_app
-from generation.groq import GroqRateLimitError
+from generation.groq import GroqRateLimitError, GenerationResult
 
 
 class FakeService:
@@ -110,19 +110,13 @@ def test_search_rejects_empty_query():
     assert response.status_code == 422
 
 
-class DocumentService:
-    def __init__(self):
-        self.generator = object()
-
-    def answer_from_results(self, query, results):
-        return SimpleNamespace(
-            generation=SimpleNamespace(answer="[SOURCE: upload:0] Finding.", model="openai/gpt-oss-120b", citations=["upload:0"]),
-            retrieved=results,
-        )
+class DocumentGenerator:
+    def generate(self, query, results):
+        return GenerationResult("[SOURCE: upload:0] Finding.", "openai/gpt-oss-120b", ["upload:0"])
 
 
 def test_document_analysis_rejects_non_pdf():
-    client = TestClient(create_app(DocumentService()))
+    client = TestClient(create_app(generator=DocumentGenerator()))
     response = client.post("/document-analysis", files={"file": ("note.txt", b"text", "text/plain")}, data={"query": "What does it say?"})
     assert response.status_code == 400
 

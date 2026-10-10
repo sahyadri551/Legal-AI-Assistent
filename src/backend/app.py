@@ -5,6 +5,10 @@ from dataclasses import asdict
 from io import BytesIO
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pypdf import PdfReader
@@ -16,7 +20,7 @@ from retrieval.rrf import RRFResult
 from pydantic import BaseModel, Field
 
 from backend.qa import HybridQAService
-from generation.groq import GroqRateLimitError
+from generation.groq import GroqGenerator, GroqRateLimitError
 
 
 class QARequest(BaseModel):
@@ -35,7 +39,7 @@ class SearchResponse(BaseModel):
     results: list[dict]
 
 
-def create_app(service: HybridQAService | None = None) -> FastAPI:
+def create_app(service: HybridQAService | None = None, generator: GroqGenerator | None = None) -> FastAPI:
     app = FastAPI(title="Indian Legal Research Assistant", version="0.1.0")
 
     configured_origins = [
@@ -60,6 +64,7 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
     )
 
     app.state.service = service
+    app.state.document_generator = generator
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -85,7 +90,7 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
         )
 
     @app.post("/document-analysis", response_model=QAResponse)
-    async def document_analysis(
+    def document_analysis(
         file: UploadFile = File(...),
         query: str = Form(...),
     ) -> QAResponse:
@@ -94,7 +99,7 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
         filename = file.filename or "uploaded-document.pdf"
         if not filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Only PDF documents are supported.")
-        data = await file.read()
+        data = file.file.read()
         if not data:
             raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
         try:
@@ -141,11 +146,11 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
                 )
                 for result in bm25_results
             ]
-            current = app.state.service
-            if current is None:
-                current = HybridQAService()
-                app.state.service = current
-            result = current.answer_from_results(query, fused)
+            current_generator = app.state.document_generator
+            if current_generator is None:
+                current_generator = GroqGenerator()
+                app.state.document_generator = current_generator
+            generation = current_generator.generate(query, fused)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except TimeoutError as exc:
@@ -156,10 +161,10 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
         return QAResponse(
-            answer=result.generation.answer,
-            model=result.generation.model,
-            citations=result.generation.citations,
-            retrieved_chunks=[asdict(chunk) for chunk in result.retrieved],
+            answer=generation.answer,
+            model=generation.model,
+            citations=generation.citations,
+            retrieved_chunks=[asdict(chunk) for chunk in fused],
         )
 
     @app.post("/qa", response_model=QAResponse)
