@@ -125,3 +125,42 @@ def test_document_analysis_rejects_empty_pdf():
     client = TestClient(create_app(DocumentService()))
     response = client.post("/document-analysis", files={"file": ("note.pdf", b"", "application/pdf")}, data={"query": "What does it say?"})
     assert response.status_code == 400
+
+
+def test_document_analysis_generates_answer_without_loading_retrieval_service(monkeypatch):
+    import backend.app as app_module
+
+    class FakePage:
+        def extract_text(self):
+            return "Section 1 describes a legal duty."
+
+    class FakeReader:
+        def __init__(self, _stream):
+            self.pages = [FakePage()]
+
+    class FakeIndex:
+        def search(self, query, top_k):
+            return [SimpleNamespace(
+                chunk_id="upload:0", doc_id="uploaded-document",
+                text="Section 1 describes a legal duty.", rank=1, metadata={},
+            )]
+
+    def unexpected_service(*args, **kwargs):
+        raise AssertionError("PDF analysis must not initialize HybridQAService")
+
+    monkeypatch.setattr(app_module, "PdfReader", FakeReader)
+    monkeypatch.setattr(app_module.BM25Index, "build", lambda records: FakeIndex())
+    monkeypatch.setattr(app_module, "HybridQAService", unexpected_service)
+
+    client = TestClient(create_app(generator=DocumentGenerator()))
+    response = client.post(
+        "/document-analysis",
+        files={"file": ("note.pdf", b"%PDF-test-content", "application/pdf")},
+        data={"query": "What duty is described?"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"] == "[SOURCE: upload:0] Finding."
+    assert body["model"] == "openai/gpt-oss-120b"
+    assert body["retrieved_chunks"][0]["chunk_id"] == "upload:0"
