@@ -1,16 +1,11 @@
-# Application, hardware, and path defaults.
-# Generation uses a local Ollama server; no in-process LLM weights.
-
 project:
-  name: indian-legal-research-assistant
+  name: lexassist-ai
   research_question: >
-    Does hybrid BM25 + dense retrieval with Reciprocal Rank Fusion
-    improve retrieval and answer quality for Indian legal QA
-    compared with BM25-only and dense-only baselines?
+    Does hybrid BM25 and dense retrieval with Reciprocal Rank Fusion improve
+    retrieval and answer quality for Indian legal question answering?
 
 hardware:
   device: cpu
-  notes: Intel i5-13420H, 16 GB RAM, integrated GPU unused for inference.
 
 paths:
   data_raw: data/raw
@@ -25,6 +20,3 @@ paths:
 api:
   host: 127.0.0.1
   port: 8000
-
-frontend:
-  port: 8501
