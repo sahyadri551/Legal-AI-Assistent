@@ -119,7 +119,7 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
         try:
             reader = PdfReader(BytesIO(data))
             pages = [(page.extract_text() or "").strip() for page in reader.pages]
-            text = "\\n\\n".join(page for page in pages if page)
+            text = "\n\n".join(page for page in pages if page)
             chunks = chunk_text(text, max_chars=1200, overlap_chars=150)
             if not chunks:
                 raise ValueError("No extractable text was found in the PDF.")
