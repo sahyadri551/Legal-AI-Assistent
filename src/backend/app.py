@@ -94,7 +94,6 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
         file: UploadFile = File(...),
         query: str = Form(...),
     ) -> QAResponse:
-        """Analyze only the uploaded PDF; do not load the global retrieval indexes."""
         if not query.strip():
             raise HTTPException(status_code=400, detail="query must not be empty")
         filename = file.filename or "uploaded-document.pdf"
@@ -115,7 +114,6 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
                 status_code=413,
                 detail=f"PDF is too large. Maximum size is {max_upload_mb:g} MB.",
             )
-
         try:
             reader = PdfReader(BytesIO(data))
             pages = [(page.extract_text() or "").strip() for page in reader.pages]
@@ -161,11 +159,6 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
             raise HTTPException(status_code=429, detail=str(exc)) from exc
         except RuntimeError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
-        except Exception as exc:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Document analysis failed: {type(exc).__name__}: {exc}",
-            ) from exc
 
         return QAResponse(
             answer=generation.answer,
