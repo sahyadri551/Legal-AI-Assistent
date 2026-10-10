@@ -122,7 +122,7 @@ def test_document_analysis_rejects_non_pdf():
 
 
 def test_document_analysis_rejects_empty_pdf():
-    client = TestClient(create_app(DocumentService()))
+    client = TestClient(create_app(generator=DocumentGenerator()))
     response = client.post("/document-analysis", files={"file": ("note.pdf", b"", "application/pdf")}, data={"query": "What does it say?"})
     assert response.status_code == 400
 
@@ -149,7 +149,7 @@ def test_document_analysis_generates_answer_without_loading_retrieval_service(mo
         raise AssertionError("PDF analysis must not initialize HybridQAService")
 
     monkeypatch.setattr(app_module, "PdfReader", FakeReader)
-    monkeypatch.setattr(app_module.BM25Index, "build", lambda records: FakeIndex())
+    monkeypatch.setattr(app_module.BM25Index, "build", staticmethod(lambda records: FakeIndex()))
     monkeypatch.setattr(app_module, "HybridQAService", unexpected_service)
 
     client = TestClient(create_app(generator=DocumentGenerator()))
