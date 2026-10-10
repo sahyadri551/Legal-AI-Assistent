@@ -47,6 +47,8 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
         configured_origins = [
             "http://localhost:8501",
             "http://127.0.0.1:8501",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
         ]
 
     app.add_middleware(
@@ -75,7 +77,7 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except FileNotFoundError as exc:
             raise HTTPException(status_code=503, detail=f"Retrieval indexes are unavailable: {exc}") from exc
-        except Exception as exc:  # surface the real cause instead of a bare HTTP 500
+        except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Search failed: {type(exc).__name__}: {exc}") from exc
         return SearchResponse(
             query=request.query,
@@ -185,7 +187,6 @@ def create_app(service: HybridQAService | None = None) -> FastAPI:
             citations=result.generation.citations,
             retrieved_chunks=[asdict(chunk) for chunk in result.retrieved],
         )
-
 
     return app
 
