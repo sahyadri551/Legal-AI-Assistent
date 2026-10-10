@@ -7,6 +7,42 @@ import { setMode,setTheme,setQuery,setBusy,setError,setAnswer,setSearchResults,s
 
 const starterPrompts = [{title:"Understand a legal provision",detail:"Explain a section in plain language",query:"Explain the legal elements of murder under the Bharatiya Nyaya Sanhita (BNS)."},{title:"Search indexed authorities",detail:"Find relevant judgments and distinctions",mode:"search",query:"Supreme Court judgments on criminal procedure"},{title:"Review a document",detail:"Extract issues and supporting provisions",mode:"document",query:"Summarize this document and identify the key legal issues."}];
 const short = (value,n=220) => value && value.length>n ? value.slice(0,n).trim()+"…" : value || "";
+function StoredMessageContent({ message, includeCitations }) {
+ const data = message.data;
+ if (message.role === "user") {
+  return <div className="history-text">{message.text || message.query || ""}</div>;
+ }
+ if (message.mode === "search" && Array.isArray(data?.results)) {
+  return <>
+   <div className="history-text">{data.results.length} search result{data.results.length === 1 ? "" : "s"} for “{message.query || "your query"}”.</div>
+   <div className="search-result-list">
+    {data.results.slice(0, 5).map((result, index) => <article className="search-result" key={result.chunk_id || index}>
+     <div className="source-index">{String(index + 1).padStart(2, "0")}</div>
+     <div className="source-content">
+      <div className="search-result-title"><b>{result.doc_id || result.chunk_id || "Legal passage"}</b><span className="score-badge">Score {Number(result.score || 0).toFixed(5)}</span></div>
+      <p>{result.text || result.content || ""}</p>
+     </div>
+    </article>)}
+   </div>
+  </>;
+ }
+ const answer = data?.answer || message.text || message.query || "";
+ return <>
+  <div className="history-text">{answer}</div>
+  {includeCitations && data?.citations?.length > 0 && <div className="citation-area">
+   <div className="section-label">CITATIONS</div>
+   <div className="citation-list">{data.citations.map((citation, index) => <span className="citation-chip" key={citation + index}><BookOpen size={13}/>{citation}</span>)}</div>
+  </div>}
+  {data?.retrieved_chunks?.length > 0 && <div className="sources-area">
+   <div className="section-label">RETRIEVED EVIDENCE <span>{data.retrieved_chunks.length} passages</span></div>
+   {data.retrieved_chunks.slice(0, 5).map((chunk, index) => <article className="source-row" key={chunk.chunk_id || index}>
+    <div className="source-index">{String(index + 1).padStart(2, "0")}</div>
+    <div className="source-content"><b>{chunk.doc_id || chunk.chunk_id || "Retrieved passage"}</b><p>{short(chunk.text, 280)}</p></div>
+   </article>)}
+  </div>}
+ </>;
+}
+
 function App(){
  const dispatch=useDispatch(); const state=useSelector(s=>s.workspace); const [health,setHealth]=useState(false); const [file,setFile]=useState(null); const [sidebar,setSidebar]=useState(true); const [listening,setListening]=useState(false); const [menuId,setMenuId]=useState(null);
  useEffect(()=>{document.documentElement.classList.toggle("dark",state.theme==="dark");},[state.theme]);
@@ -47,7 +83,7 @@ function renameCurrent(s){const title=window.prompt("Rename research session",s.
  {state.busy&&<div className="loading-card"><LoaderCircle className="spin" size={20}/><div><b>{state.mode==="search"?"Searching indexed authorities…":state.mode==="document"?"Analyzing uploaded document…":"Retrieving evidence and drafting an answer…"}</b><span>This can take a little while on a cold start.</span></div></div>}
  {state.answer&&<section className="result-card"><div className="result-header"><div className="result-heading"><span className="result-icon"><Sparkles size={17}/></span><div><b>Research answer</b><span>{state.answer.model||"Groq"} · Evidence-grounded response</span></div></div><button className="icon-btn" title="Clear result" onClick={()=>dispatch(clearSession())}><X size={16}/></button></div><div className="answer-body">{state.answer.answer}</div>{state.includeCitations&&state.answer.citations?.length>0&&<div className="citation-area"><div className="section-label">CITATIONS</div><div className="citation-list">{state.answer.citations.map((c,i)=><span className="citation-chip" key={c+i}><BookOpen size={13}/>{c}</span>)}</div></div>}{state.answer.retrieved_chunks?.length>0&&<div className="sources-area"><div className="section-label">RETRIEVED EVIDENCE <span>{state.answer.retrieved_chunks.length} passages</span></div>{state.answer.retrieved_chunks.slice(0,5).map((c,i)=><article className="source-row" key={c.chunk_id||i}><div className="source-index">{String(i+1).padStart(2,"0")}</div><div className="source-content"><b>{c.doc_id||c.chunk_id||"Retrieved passage"}</b><p>{short(c.text,280)}</p></div></article>)}</div>}</section>}
  {state.documentResult&&<section className="result-card"><div className="result-header"><div className="result-heading"><span className="result-icon"><FileText size={17}/></span><div><b>Document analysis</b><span>{state.documentResult.model||"Groq"} · Uploaded PDF</span></div></div></div><div className="answer-body">{state.documentResult.answer}</div>{state.includeCitations&&state.documentResult.citations?.map((c,i)=><span className="citation-chip" key={c+i}>{c}</span>)}{state.documentResult.retrieved_chunks?.length>0&&<div className="sources-area"><div className="section-label">SUPPORTING PASSAGES</div>{state.documentResult.retrieved_chunks.map((c,i)=><article className="source-row" key={i}><div className="source-index">{i+1}</div><div className="source-content"><p>{short(c.text,260)}</p></div></article>)}</div>}</section>}
- {state.sessions.find(s=>s.id===state.activeId)?.messages?.length>0&&<section className="conversation-history" aria-label="Session conversation">{state.sessions.find(s=>s.id===state.activeId).messages.map((m,i)=><article className={"history-message "+(m.role==="user"?"history-user":"history-assistant")} key={m.at||i}><div className="history-role">{m.role==="user"?"You":"LexAssist"}</div><div className="history-text">{m.text||m.query||""}</div></article>)}</section>}
+ {state.sessions.find(s=>s.id===state.activeId)?.messages?.length>0&&<section className="conversation-history" aria-label="Session conversation">{state.sessions.find(s=>s.id===state.activeId).messages.map((m,i)=><article className={"history-message "+(m.role==="user"?"history-user":"history-assistant")} key={m.at||i}><div className="history-role">{m.role==="user"?"You":"LexAssist"}</div><StoredMessageContent message={m} includeCitations={state.includeCitations} /></article>)}</section>}
  {results.length>0&&<section className="result-card"><div className="result-header"><div className="result-heading"><span className="result-icon"><Search size={17}/></span><div><b>Case law search results</b><span>{results.length} retrieved passages · sorted by hybrid rank</span></div></div></div><div className="chart-heading"><div><b>Retrieval score distribution</b><p>Higher scores indicate stronger relative ranking in this result set.</p></div><span className="chart-tag">TOP {chartData.length}</span></div><div className="chart-wrap"><ResponsiveContainer width="100%" height={210}><AreaChart data={chartData} margin={{top:8,right:12,left:2,bottom:0}}><defs><linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#5268e8" stopOpacity={0.28}/><stop offset="95%" stopColor="#5268e8" stopOpacity={0.02}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--chart-grid)"/><XAxis dataKey="name" tick={{fontSize:11,fill:"var(--muted)"}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:"var(--muted)"}} axisLine={false} tickLine={false} width={52}/><Tooltip contentStyle={{background:"var(--panel)",border:"1px solid var(--border)",borderRadius:12,color:"var(--text)"}} formatter={(v)=>[Number(v).toFixed(5),"RRF score"]} labelFormatter={(l,i)=>chartData[i]?.label||l}/><Area type="monotone" dataKey="score" stroke="#5268e8" strokeWidth={2.5} fill="url(#scoreFill)" activeDot={{r:5}}/></AreaChart></ResponsiveContainer></div><div className="search-result-list">{results.map((r,i)=><article className="search-result" key={r.chunk_id||i}><div className="source-index">{String(i+1).padStart(2,"0")}</div><div className="source-content"><div className="search-result-title"><b>{r.doc_id||r.chunk_id||"Legal passage"}</b><span className="score-badge">Score {Number(r.score||0).toFixed(5)}</span></div><p>{r.text||r.content||""}</p>{r.metadata&&<div className="metadata-row">{Object.entries(r.metadata).slice(0,3).map(([k,v])=><span key={k}>{k.replaceAll("_"," ")}: {String(v)}</span>)}</div>}</div></article>)}</div></section>}
  <div className="composer-zone"><div className="composer"><div className="composer-top">{state.mode==="document"?"Ask something about the uploaded PDF":state.mode==="search"?"Search case law, sections, or legal principles":"Ask a legal question"}</div><textarea value={state.query} onChange={e=>dispatch(setQuery(e.target.value))} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submit();}}} placeholder={state.mode==="search"?"e.g. Supreme Court judgments on anticipatory bail…":state.mode==="document"?"e.g. Identify the key issues and relevant provisions…":"e.g. Explain a provision of the Bharatiya Nyaya Sanhita (BNS)…"} rows={2}/><div className="composer-bottom"><div className="composer-tools"><button className={"tool-btn "+(listening?"listening":"")} onClick={startVoice} title="Voice input"><Mic size={16}/><span>{listening?"Listening…":"Voice"}</span></button><span className="composer-note"><ShieldCheck size={13}/> Verify important legal authorities independently</span></div><button className="send-btn" onClick={()=>submit()} disabled={state.busy||!state.query.trim()}>{state.busy?<LoaderCircle className="spin" size={17}/>:<ArrowUp size={17}/>}<span>{state.mode==="search"?"Search":state.mode==="document"?"Analyze":"Ask LexAssist"}</span></button></div></div><div className="composer-foot"><span><span className="keyboard-key">↵</span> to submit <span className="keyboard-key">⇧ ↵</span> for a new line</span><span>AI can make mistakes. Check primary sources.</span></div></div>
  </div></main></div>;
