@@ -57,7 +57,7 @@ function App(){
    let data;
    if(mode==="search"){data=await searchCases(query);dispatch(setSearchResults(data.results||[]));}
    else if(mode==="document"){if(!file)throw new Error("Choose a PDF document before running document analysis.");data=await analyzeDocument(file,query);dispatch(setDocumentResult(data));}
-   else{data=await askQuestion(query);dispatch(setAnswer(data));}
+   else{const session=state.sessions.find(s=>s.id===state.activeId);const history=(session?.messages||[]).slice(-8).map(m=>({role:m.role,text:m.text||m.query||""}));data=await askQuestion(query,history);dispatch(setAnswer(data));}
    const responseText=mode==="search"?JSON.stringify(data.results||[],null,2):(data.answer||JSON.stringify(data,null,2));
    dispatch(addMessage({role:"assistant",query,text:responseText,data,mode,at:new Date().toISOString()}));
   }catch(e){dispatch(setError(e.message||"Something went wrong."));}

@@ -1,9 +1,12 @@
 """FastAPI application for end-to-end legal QA."""
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from io import BytesIO
+import logging
 import os
+import threading
 
 from dotenv import load_dotenv
 
@@ -12,6 +15,7 @@ load_dotenv()
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pypdf import PdfReader
+from pypdf.errors import FileNotDecryptedError, PdfReadError
 
 from ingestion.chunking import chunk_text
 from retrieval.bm25 import BM25Index
@@ -20,11 +24,14 @@ from retrieval.rrf import RRFResult
 from pydantic import BaseModel, Field
 
 from backend.qa import HybridQAService
-from generation.groq import GroqGenerator, GroqRateLimitError
+from generation.groq import GroqConfigurationError, GroqGenerator, GroqRateLimitError
+
+logger = logging.getLogger(__name__)
 
 
 class QARequest(BaseModel):
     query: str = Field(min_length=1)
+    history: list[dict[str, str]] = Field(default_factory=list, max_length=12)
 
 
 class QAResponse(BaseModel):
@@ -40,7 +47,13 @@ class SearchResponse(BaseModel):
 
 
 def create_app(service: HybridQAService | None = None, generator: GroqGenerator | None = None) -> FastAPI:
-    app = FastAPI(title="Indian Legal Research Assistant", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        if app.state.service is None and generator is None:
+            app.state.service = HybridQAService()
+        yield
+
+    app = FastAPI(title="Indian Legal Research Assistant", version="0.1.0", lifespan=lifespan)
 
     configured_origins = [
         origin.strip()
@@ -65,6 +78,24 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
 
     app.state.service = service
     app.state.document_generator = generator
+    app.state.service_init_lock = threading.Lock()
+
+    def get_service():
+        if app.state.service is not None:
+            return app.state.service
+        with app.state.service_init_lock:
+            if app.state.service is None:
+                app.state.service = HybridQAService()
+            return app.state.service
+
+    def contextual_query(query, history):
+        turns = []
+        for turn in history[-8:]:
+            role = turn.get("role", "")
+            content = (turn.get("text") or turn.get("query") or "").strip()
+            if role in {"user", "assistant"} and content:
+                turns.append(role + ": " + content[:1200])
+        return query if not turns else "Recent conversation:\n" + "\n".join(turns) + "\nCurrent question: " + query
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -73,17 +104,18 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
     @app.post("/search", response_model=SearchResponse)
     def search(request: QARequest) -> SearchResponse:
         try:
-            current = app.state.service
-            if current is None:
-                current = HybridQAService()
-                app.state.service = current
-            results = current.retrieve(request.query, top_k=20)
+            current = get_service()
+            results = current.retrieve(contextual_query(request.query, request.history), top_k=20)
+        except GroqConfigurationError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except FileNotFoundError as exc:
-            raise HTTPException(status_code=503, detail=f"Retrieval indexes are unavailable: {exc}") from exc
-        except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Search failed: {type(exc).__name__}: {exc}") from exc
+        except FileNotFoundError:
+            logger.exception("Search indexes unavailable")
+            raise HTTPException(status_code=503, detail="Retrieval indexes are unavailable.") from None
+        except Exception:
+            logger.exception("Search failed")
+            raise HTTPException(status_code=502, detail="Search failed due to an internal error.") from None
         return SearchResponse(
             query=request.query,
             results=[asdict(result) for result in results],
@@ -99,9 +131,13 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
         filename = file.filename or "uploaded-document.pdf"
         if not filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Only PDF documents are supported.")
-        data = file.file.read()
+        data = file.file.read(int(float(os.getenv("DOCUMENT_MAX_MB", "15")) * 1024 * 1024) + 1)
         if not data:
             raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
+        if len(data) > int(float(os.getenv("DOCUMENT_MAX_MB", "15")) * 1024 * 1024):
+            raise HTTPException(status_code=413, detail="PDF exceeds the configured upload limit.")
+        if not data.startswith(b"%PDF-"):
+            raise HTTPException(status_code=400, detail="The uploaded file is not a valid PDF.")
         try:
             max_upload_mb = float(os.getenv("DOCUMENT_MAX_MB", "15"))
         except ValueError as exc:
@@ -116,6 +152,8 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
             )
         try:
             reader = PdfReader(BytesIO(data))
+            if getattr(reader, "is_encrypted", False) and not reader.decrypt(""):
+                raise HTTPException(status_code=400, detail="Password-protected PDFs are not supported.")
             pages = [(page.extract_text() or "").strip() for page in reader.pages]
             text = "\n\n".join(page for page in pages if page)
             chunks = chunk_text(text, max_chars=1200, overlap_chars=150)
@@ -146,11 +184,38 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
                 )
                 for result in bm25_results
             ]
+            legal_service = app.state.service
+            if legal_service is not None:
+                try:
+                    statute_hits = [hit for hit in legal_service.retrieve(query, top_k=20) if str(hit.metadata.get("doc_type", "")).lower() == "statute"][:4]
+                    known_ids = {hit.chunk_id for hit in fused}
+                    fused.extend(hit for hit in statute_hits if hit.chunk_id not in known_ids)
+                except Exception:
+                    logger.exception("Could not retrieve statute context for PDF analysis")
             current_generator = app.state.document_generator
             if current_generator is None:
                 current_generator = GroqGenerator()
                 app.state.document_generator = current_generator
-            generation = current_generator.generate(query, fused)
+            if len(records) > 8 and any(term in query.lower() for term in ("summarize", "summarise", "summary", "overview", "key points")):
+                from generation.groq import GenerationResult
+                summaries, citations = [], []
+                for start in range(0, len(records), 8):
+                    batch = []
+                    for rank, record in enumerate(records[start:start + 8], 1):
+                        metadata = {k: v for k, v in record.items() if k not in {"chunk_id", "doc_id", "text"}}
+                        batch.append(RRFResult(record["chunk_id"], record["doc_id"], record["text"], 1.0 / (60 + rank), rank, None, metadata))
+                    part = current_generator.generate("Summarize the key facts, issues, and conclusions in this section. Cite only the supplied source identifiers.", batch)
+                    summaries.append(part.answer)
+                    citations.extend(part.citations)
+                generation = GenerationResult("\n\n".join(summaries), getattr(current_generator, "model", "Groq"), list(dict.fromkeys(citations)))
+            else:
+                generation = current_generator.generate(query, fused)
+        except (PdfReadError, FileNotDecryptedError) as exc:
+            raise HTTPException(status_code=400, detail="The PDF is damaged, unreadable, or password-protected.") from exc
+        except HTTPException:
+            raise
+        except GroqConfigurationError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except TimeoutError as exc:
@@ -170,15 +235,14 @@ def create_app(service: HybridQAService | None = None, generator: GroqGenerator 
     @app.post("/qa", response_model=QAResponse)
     def qa(request: QARequest) -> QAResponse:
         try:
-            current = app.state.service
-            if current is None:
-                current = HybridQAService()
-                app.state.service = current
-            result = current.answer(request.query)
+            current = get_service()
+            result = current.answer(contextual_query(request.query, request.history))
+        except GroqConfigurationError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except FileNotFoundError as exc:
-            raise HTTPException(status_code=503, detail=f"Retrieval indexes are unavailable: {exc}") from exc
+            raise HTTPException(status_code=503, detail="Retrieval indexes are unavailable.") from exc
         except TimeoutError as exc:
             raise HTTPException(status_code=504, detail=str(exc)) from exc
         except GroqRateLimitError as exc:

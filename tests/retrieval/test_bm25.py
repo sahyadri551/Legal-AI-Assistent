@@ -33,7 +33,7 @@ def test_build_save_load_and_retrieve(tmp_path: Path) -> None:
     assert (index_dir / "manifest.json").exists()
 
     results = BM25Retriever(index_dir).retrieve("Supreme Court bail section 439", top_k=2)
-    assert len(results) == 2
+    assert len(results) == 1
     assert results[0].chunk_id == "judgment:1:0"
     assert results[0].rank == 1
     assert results[0].score > results[1].score
@@ -54,3 +54,13 @@ def test_invalid_top_k_and_empty_corpus(tmp_path: Path) -> None:
     records = [json.loads(line) for line in chunks.read_text(encoding="utf-8").splitlines()]
     with pytest.raises(ValueError):
         BM25Index.build(records).search("bail", top_k=0)
+
+
+def test_search_excludes_zero_score_documents():
+    records = [
+        {"chunk_id": "c1", "doc_id": "d1", "text": "bail provision"},
+        {"chunk_id": "c2", "doc_id": "d2", "text": "contract damages"},
+    ]
+    results = BM25Index.build(records).search("bail", top_k=10)
+    assert results
+    assert all(result.score > 0 for result in results)

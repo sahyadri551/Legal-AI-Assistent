@@ -77,7 +77,7 @@ class BM25Index:
         if not query_tokens:
             return []
         scores = self.bm25.get_scores(query_tokens)
-        ranked = sorted(range(len(scores)), key=lambda i: (-float(scores[i]), i))[:top_k]
+        ranked = [i for i in sorted(range(len(scores)), key=lambda i: (-float(scores[i]), i)) if float(scores[i]) > 0][:top_k]
         results = []
         for rank, index in enumerate(ranked, 1):
             record = self.records[index]

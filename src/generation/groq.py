@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -16,6 +17,10 @@ from retrieval.rrf import RRFResult
 class ChatCompletionsClient(Protocol):
     @property
     def chat(self) -> Any: ...
+
+
+class GroqConfigurationError(RuntimeError):
+    """Required generation configuration is missing or invalid."""
 
 
 class GroqRateLimitError(RuntimeError):
@@ -55,7 +60,7 @@ class GroqGenerator:
         base_url: str | None = None,
         api_key: str | None = None,
         timeout_seconds: int = 300,
-        max_completion_tokens: int = 2048,
+        max_completion_tokens: int = 4096,
         temperature: float = 0.2,
         top_p: float = 0.9,
         reasoning_effort: str = "medium",
@@ -102,7 +107,7 @@ class GroqGenerator:
         if client is None:
             resolved_key = api_key or os.getenv("GROQ_API_KEY")
             if not resolved_key:
-                raise ValueError("GROQ_API_KEY is not set")
+                raise GroqConfigurationError("GROQ_API_KEY is not set")
             client = OpenAI(
                 api_key=resolved_key,
                 base_url=resolved_base_url,
@@ -208,7 +213,10 @@ class GroqGenerator:
                     stream=False,
                     extra_body={"include_reasoning": False},
                 )
-                content = response.choices[0].message.content or ""
+                choice = response.choices[0]
+                if getattr(choice, "finish_reason", None) == "length":
+                    raise RuntimeError("Groq response was truncated by the completion token limit; increase the token limit or reduce requested output.")
+                content = choice.message.content or ""
                 break
             except RateLimitError as exc:
                 if attempt >= self.max_retries:
@@ -227,10 +235,10 @@ class GroqGenerator:
             raise RuntimeError("Groq returned an empty answer")
 
         answer = self._extract_answer(str(content).strip())
-        citations = [
-            result.chunk_id
-            for result in results[: self.max_chunks]
-            if result.chunk_id in answer
-        ]
-
+        source_pattern = r"\[SOURCE:\s*([^]\r\n]+?)\s*\]"
+        supplied_ids = set(re.findall(source_pattern, prompt))
+        citations = list(dict.fromkeys(match.strip() for match in re.findall(source_pattern, answer)))
+        unknown_ids = [source_id for source_id in citations if source_id not in supplied_ids]
+        if unknown_ids:
+            raise RuntimeError("Groq cited source identifiers that were not supplied: " + ", ".join(unknown_ids))
         return GenerationResult(answer, self.model, citations)

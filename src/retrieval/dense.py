@@ -21,23 +21,26 @@ class SentenceTransformerEncoder:
         return np.asarray(self.model.encode(sentences,convert_to_numpy=True,normalize_embeddings=True,show_progress_bar=False,**kwargs),dtype=np.float32)
 class DenseIndex:
     FORMAT_VERSION=1
-    def __init__(self,index:faiss.Index,records:list[dict[str,Any]])->None:
+    def __init__(self,index:faiss.Index,records:list[dict[str,Any]],model_name:str|None=None)->None:
         if index.ntotal!=len(records): raise ValueError("FAISS index and records must have equal length")
-        self.index=index; self.records=records
+        self.index=index; self.records=records; self.model_name=model_name
     @classmethod
-    def build(cls,records:list[dict[str,Any]],embeddings:np.ndarray)->"DenseIndex":
+    def build(cls,records:list[dict[str,Any]],embeddings:np.ndarray,model_name:str|None=None)->"DenseIndex":
         if not records: raise ValueError("cannot build dense index from empty corpus")
-        v=_prepare_embeddings(embeddings,len(records)); idx=faiss.IndexFlatIP(v.shape[1]); idx.add(v); return cls(idx,records)
+        v=_prepare_embeddings(embeddings,len(records)); idx=faiss.IndexFlatIP(v.shape[1]); idx.add(v); return cls(idx,records,model_name)
     def save(self,out:Path)->None:
         out.mkdir(parents=True,exist_ok=True); faiss.write_index(self.index,str(out/"index.faiss"))
         (out/"records.jsonl").write_text("".join(json.dumps(r,ensure_ascii=False)+"\n" for r in self.records),encoding="utf-8")
-        (out/"manifest.json").write_text(json.dumps({"format_version":1,"index_type":"IndexFlatIP","dimension":self.index.d,"chunks":len(self.records),"documents":len({r["doc_id"] for r in self.records})},indent=2),encoding="utf-8")
+        (out/"manifest.json").write_text(json.dumps({"format_version":1,"index_type":"IndexFlatIP","dimension":self.index.d,"chunks":len(self.records),"documents":len({r["doc_id"] for r in self.records}),"embedding_model":self.model_name},indent=2),encoding="utf-8")
     @classmethod
-    def load(cls,out:Path)->"DenseIndex":
+    def load(cls,out:Path,expected_model_name:str|None=None)->"DenseIndex":
         m=json.loads((out/"manifest.json").read_text(encoding="utf-8"))
         if m.get("format_version")!=1: raise ValueError("unsupported dense index format")
+        stored_model=m.get("embedding_model")
+        if expected_model_name is not None and stored_model != expected_model_name: raise ValueError("Dense index embedding model mismatch; rebuild data/indexes/faiss using " + expected_model_name)
         idx=faiss.read_index(str(out/"index.faiss")); records=[json.loads(x) for x in (out/"records.jsonl").read_text(encoding="utf-8").splitlines() if x.strip()]
-        return cls(idx,records)
+        if m.get("dimension") != idx.d: raise ValueError("dense index manifest dimension does not match FAISS index")
+        return cls(idx,records,stored_model)
     def search(self,q:np.ndarray,top_k:int=8)->list[DenseResult]:
         if top_k<=0: raise ValueError("top_k must be greater than zero")
         scores,ids=self.index.search(_prepare_embeddings(q,1),min(top_k,len(self.records))); out=[]
@@ -75,16 +78,13 @@ def build_dense_index(chunks_path:Path,output_dir:Path,model_name:str="BAAI/bge-
         batches.append(encoder.encode(texts[start:start+batch_size]))
         print(f"Batch {min(start+batch_size,total)}/{total}")
     print("Building FAISS index...")
-    idx=DenseIndex.build(records,np.vstack(batches))
+    idx=DenseIndex.build(records,np.vstack(batches),model_name=model_name)
     print("Saving index..."); idx.save(output_dir); print("Done.")
     return {"chunks":len(records),"documents":len({r["doc_id"] for r in records}),"dimension":idx.index.d,"model":model_name,"device":device,"output_dir":str(output_dir)}
 class DenseRetriever:
     def __init__(self,index_dir:Path,model_name:str="BAAI/bge-small-en-v1.5",device:str="cpu",cache_dir:Path|None=None)->None:
-        if cache_dir is None:
-            self.encoder=SentenceTransformerEncoder(model_name,device)
-        else:
-            self.encoder=SentenceTransformerEncoder(model_name,device,cache_dir)
-        self.index=DenseIndex.load(index_dir)
+        self.encoder=SentenceTransformerEncoder(model_name,device,cache_dir)
+        self.index=DenseIndex.load(index_dir,expected_model_name=model_name)
     def retrieve(self,query:str,top_k:int=8)->list[DenseResult]:
         if not query.strip(): return []
         return self.index.search(self.encoder.encode([query]),top_k)

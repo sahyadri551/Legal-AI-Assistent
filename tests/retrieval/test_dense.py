@@ -41,11 +41,11 @@ def test_rejects_invalid_inputs():
 
 def test_dense_retriever_uses_cpu_encoder(monkeypatch, tmp_path: Path):
     class FakeEncoder:
-        def __init__(self, model_name, device="cpu"):
+        def __init__(self, model_name, device="cpu", cache_dir=None):
             assert device == "cpu"
         def encode(self, sentences, **kwargs):
             assert sentences == ["bail"]
             return np.array([[1,0]], dtype=np.float32)
     monkeypatch.setattr("retrieval.dense.SentenceTransformerEncoder", FakeEncoder)
-    DenseIndex.build(_records(), np.array([[1,0],[0,1],[1,1]], dtype=np.float32)).save(tmp_path)
+    DenseIndex.build(_records(), np.array([[1,0],[0,1],[1,1]], dtype=np.float32), model_name="BAAI/bge-small-en-v1.5").save(tmp_path)
     assert DenseRetriever(tmp_path).retrieve("bail", top_k=1)[0].chunk_id == "c1"
